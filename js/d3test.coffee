@@ -28,20 +28,24 @@ s2.selectAll 'rect'
   .enter()
   .append 'rect'
   .attr 'fill', 'teal'
-  .attr 'x', (d, i) -> i * (w / data.length)
-  .attr 'y', (d) -> h - d
+  .attr 'x', (d, i) -> i * (w / data.length) + 20 * i
+  .attr 'y', (d) -> h - d * 3
   .attr 'width', w / data.length - padding
-  .attr 'height', (d) -> d
+  .attr 'height', (d) -> d * 3
+  .attr 'stroke', 'purple'
+  .attr 'stroke-width', (d) -> 10
 
 s2.selectAll 'text'
   .data data
   .enter()
   .append 'text'
   .text (d) -> d
-  .attr 'x', (d, i) -> i * (w / data.length) + (w / data.length) / 2
-  .attr 'y', (d) -> h - d - 3
+  .attr 'x', (d, i) -> i * (w / data.length) + (w / data.length) / 2 + 20 * i
+  .attr 'y', (d) -> h - d
   .attr 'text-anchor', 'middle'
+  .attr 'fill', 'white'
 
+# Scatterplot
 s3data = [
   [5, 20]
   [480, 90]
@@ -61,7 +65,7 @@ s3.selectAll 'circle'
   .append 'circle'
   .attr 'cx', (d) -> d[0]
   .attr 'cy', (d) -> d[1]
-  .attr 'r', 5
+  .attr 'r', (d) -> Math.log2 d[1]
 s3.selectAll 'text'
   .data s3data
   .enter()

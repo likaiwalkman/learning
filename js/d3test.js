@@ -26,20 +26,22 @@ s().selectAll('circle').data(data).enter().append('circle').attr('cx', function(
 s2 = s();
 
 s2.selectAll('rect').data(data).enter().append('rect').attr('fill', 'teal').attr('x', function(d, i) {
-  return i * (w / data.length);
+  return i * (w / data.length) + 20 * i;
 }).attr('y', function(d) {
-  return h - d;
+  return h - d * 3;
 }).attr('width', w / data.length - padding).attr('height', function(d) {
-  return d;
+  return d * 3;
+}).attr('stroke', 'purple').attr('stroke-width', function(d) {
+  return 10;
 });
 
 s2.selectAll('text').data(data).enter().append('text').text(function(d) {
   return d;
 }).attr('x', function(d, i) {
-  return i * (w / data.length) + (w / data.length) / 2;
+  return i * (w / data.length) + (w / data.length) / 2 + 20 * i;
 }).attr('y', function(d) {
-  return h - d - 3;
-}).attr('text-anchor', 'middle');
+  return h - d;
+}).attr('text-anchor', 'middle').attr('fill', 'white');
 
 s3data = [[5, 20], [480, 90], [250, 50], [100, 33], [330, 95], [410, 12], [475, 44], [25, 67], [85, 21], [220, 88]];
 
@@ -49,7 +51,9 @@ s3.selectAll('circle').data(s3data).enter().append('circle').attr('cx', function
   return d[0];
 }).attr('cy', function(d) {
   return d[1];
-}).attr('r', 5);
+}).attr('r', function(d) {
+  return Math.log2(d[1]);
+});
 
 s3.selectAll('text').data(s3data).enter().append('text').text(function(d) {
   return d[0] + ',' + d[1];
