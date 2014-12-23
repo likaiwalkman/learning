@@ -3,8 +3,6 @@
 "summary": "scheme简洁优雅强大，直指编程本质。学之能去芜存精，助我们提升编程水平。"
 }
 -->
-## Scheme初探
-
 ### 基本介绍
 
 最近在学习[Scheme](http://zh.wikipedia.org/wiki/Scheme)，来自MIT的一个著名的[Lisp](http://zh.wikipedia.org/wiki/Lisp)方言。它诞生于1975年，和c语言(1972)算是同龄，对比现在当道的90后语言(java, javascript, php, python, ruby... )，在这日新月异的程序界，算得上是“老掉牙”了。
@@ -28,13 +26,14 @@ Scheme的语法就是Lisp语法，括号套括号...很多人不爽lisp满屏的
 
 下面简单说一下其语法元素:
 * 原子（atom）和列表（list）
+
 表达式只有两种, `atom`和`list`, atom是number或者symbol(类似于string), list就是那坨括号
 
 ```scheme
 3                                       ; 数字3
 1.14                                    ; 数字1.14
-\#t                                     ; boolean True
-\#f                                     ; boolean False
+#t                                     ; boolean True
+#f                                     ; boolean False
 abc                                     ; simbol abc
 ()                                      ; empty list
 (abc xyz)                               ; list
@@ -111,15 +110,15 @@ function(x){
 
 然而，我们常常听到一个说法：避免递归，多用循环(迭代)。这在一般情况下（比如c、java程序里）是正确的，因为递归会不断进行函数调用，系统需要保存调用信息和返回地址到[调用栈](http://zh.wikipedia.org/wiki/%E8%B0%83%E7%94%A8%E6%A0%88)，这样不仅性能慢，而且容易栈溢出。
 
-不过在[函数式编程](http://zh.wikipedia.org/zh-hk/%E5%87%BD%E6%95%B8%E7%A8%8B%E5%BC%8F%E8%AA%9E%E8%A8%80)语言里，一般都支持[尾递归](http://zh.wikipedia.org/wiki/%E5%B0%BE%E8%B0%83%E7%94%A8)优化（javascript的话，ES6将支持尾递归优化, excited!），可以很好的解决这个问题。不过在这里我们主要考虑编程的思想，优化之类的问题先不多谈。
+但是在[函数式编程](http://zh.wikipedia.org/zh-hk/%E5%87%BD%E6%95%B8%E7%A8%8B%E5%BC%8F%E8%AA%9E%E8%A8%80)语言里，一般都支持[尾递归](http://zh.wikipedia.org/wiki/%E5%B0%BE%E8%B0%83%E7%94%A8)优化（javascript的话，ES6将支持尾递归优化, excited!），可以很好的解决这个问题。不过在这里我们主要考虑编程的思想，优化之类的问题先不多谈。
 
 另外，如果细心的话，你可能会发现，刚才的阶乘算法里的`define`, 并不在之前提到的built-in的list里。实际上，define也可以只是一个语法糖。难道给函数命名也不是必需的？关于这一点，我们会在之后的`Y-combinator`一节得到答案。而现在，让我们先认为define存在并且work。
 
 #### 实现加减乘除
-让我们来实现那些基本的运算。注意，我们暂时只考虑自然数的情况。
+让我们来实现那些基本的运算。注意，我们暂时只考虑`自然数`的情况。
 * 加法
 
-我们可以使用`add1`, `sub1`以及`zero?`来实现加法。对于`n - m`, 当`m`为`0`时，返回`n`，这是设置一个停止条件；然后让`m`往`0`逼近，递归调用加法函数即可。代码如下:
+我们可以使用`add1`, `sub1`以及`zero?`来实现加法。对于`n + m`, 当`m`为`0`时，返回`n`，这是设置一个停止条件；然后让`m`往`0`逼近，递归调用加法函数即可。代码如下:
 ```scheme
 (define +
   (lambda (n m)
@@ -387,6 +386,7 @@ var F = function(f){
 
 让我们看看`F(f)`的结果是什么?
 ```javascript
+// F(f)的展开
 function(n){
     if (n == 1){
         return 1;
@@ -397,11 +397,12 @@ function(n){
 ```
 这个`f`是我们传进去的真正的递归函数，而如果f是真正的递归函数，那么很明显，`F(f)`就是`f`本身。
 
-也就是说，`F(f) = f`。很好，虽然我们还不能给出`f`，但我们找到了`F`和`f`的关系。让我们继续尝试，看能否通过`F`来找到`f`。
+也就是说，`F(f) = f`。很好，虽然我们还不能给出`f`，但我们能给出`F`，并找到了`F`和`f`的关系。让我们继续尝试，看能否通过`F`来最终找到`f`。
 
 我们现在知道，`F(f)`就等于我们要找的递归函数。而F和f的定义看起来是很类似的，那我们来试试`F(F)`。`F(F)`展开的结果是:
 ```javascript
-F(F) = function(n){
+// F(F)的展开
+function(n){
     if (n == 1){
         return 1;
     } else {
@@ -416,14 +417,15 @@ var G = function(f){
         if (n == 1){
             return 1;
         } else {
-            return n * f(f)(n-1); // 这里是f(f)
+            return n * f(f)(n-1); // 注意是f(f)
         }
     }
 }
 ```
 这里`G`和`F`唯一的区别就是里面递归调用的是`f(f)`而不是`f`。现在`G(G)`的展开里会是这样：
 ```javascript
-G(G) = function(n){
+// G(G)的展开
+function(n){
     if (n == 1){
         return 1;
     } else {
@@ -498,12 +500,13 @@ var Y = function(F){
     }
 })(5); // output 120
 ```
+:joy: :joy_cat: :laughing:
 
 #### Interpreter
-`The Little Schemer`的第十章，主要是讲如何用scheme实现一个简单的scheme解释器，虽然只支持built-in的方法和lambda，但已然十分强大，其实现过程真正体现了`数据即程序`的特点。不过这个code就真是一大坨了，在此就不张贴了。
+`The Little Schemer`的第十章，主要是讲如何用scheme实现一个简单的scheme解释器，虽然只支持built-in的方法和lambda，但已然十分强大，其实现过程真正体现了`数据即程序`的特点。不过这个code就真是一大坨了，在此就不张贴了。要看code的戳[这里](https://github.com/martin-liu/learning/blob/master/scheme/The_Little_Schemer.scm#L856)
 
 ### Commandments
-`The Little Schemer`里总结了十条诫律，非常有价值，在此罗列如下：
+最后，`The Little Schemer`里总结了十条诫律，非常有价值，在此罗列如下：
 1. Always ask, null? for atom/lat, zero? for number; when S-expression, ask (null? l), (atom? (car l)) and else.
 
 2. cons => use to build list
@@ -531,7 +534,4 @@ When lat, use (cdr lat); when number, use (sub1 n); when S-expression, use (car 
 通过包装function产生新的function, 让新的function来collect本次调用产生的数据
 
 ### Code
-
-### reference
-[Wikipedia](http://zh.wikipedia.org/)
-[CPS Lecture](https://cgi.soic.indiana.edu/~c311/lib/exe/fetch.php?media=cps-notes.scm)
+所有code放在[这里](https://github.com/martin-liu/learning/blob/master/scheme/The_Little_Schemer.scm)，如果真有人想看的话 :no_mouth:
