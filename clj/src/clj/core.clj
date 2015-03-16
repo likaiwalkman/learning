@@ -210,3 +210,11 @@ p                                       ; "foo"
   [x & rest]
   (apply str (butlast rest)))
 (concat-rest 0 1 2 3 4)                 ; => "123"
+
+(defn make-user
+  ; use vector because the rest args is a list
+  [& [user-id]]
+  {:user-id (or user-id
+                (str (java.util.UUID/randomUUID)))})
+(make-user)               ; => {:user-id "ea56a233-deb7-4d8a-93a1-efbc10b2c7ea"}
+(make-user "test")        ; => {:user-id "test"}
