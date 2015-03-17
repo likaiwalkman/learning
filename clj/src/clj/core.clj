@@ -287,11 +287,46 @@ p                                       ; "foo"
     (do (println x)
         (recur (dec x)))))
 (countdown 2)
+
 (defn feb
-  ([n] (feb n 0))
-  ([n sum]
-   (cond
-     (zero? x) sum
-     (= 1 x) (+ sum 1)
-     true (do ()
-              (recur (dec x))))))
+  [n]
+  (cond
+    (zero? n) 0
+    (= 1 n) 1
+    true (loop [ppre 0N
+                pre 1N
+                num 2]
+           (if (= num n)
+             (+ ppre pre)
+             (recur pre (+ ppre pre) (inc num))))))
+(feb 10)                                ; => 55N
+
+;;; var to get the reference itself, rather than the value
+(def x 5)                               ; => #'clj.core/x
+(var x)                                 ; => #'clj.core/x
+#'x                                     ; => #'clj.core/x
+
+;;; Java Interop: `.' and `new'
+(java.util.ArrayList. 100)              ; => []
+(new java.util.ArrayList 100)           ; => []
+(Math/pow 2 10)                         ; => 1024.0
+(. Math pow 2 10)                       ; => 1024.0
+(.substring "hello" 1 3)                ; => "el"
+(. "hello" substring 1 3)               ; => "el"
+(Integer/MAX_VALUE)                     ; => 2147483647
+(. Integer MAX_VALUE)                   ; => 2147483647
+
+;;; eval
+(eval x)
+(defn embedded-repl
+  "A naive Clojure REPL implementation. Enter `:quit`
+to exit."
+  []
+  (print (str (ns-name *ns*) ">>> "))
+  (flush)
+  (let [expr (read)
+        value (eval expr)]
+    (when (not= :quit value)
+      (println value)
+      (recur))))
+;(embedded-repl)
