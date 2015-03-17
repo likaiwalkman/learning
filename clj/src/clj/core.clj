@@ -218,3 +218,80 @@ p                                       ; "foo"
                 (str (java.util.UUID/randomUUID)))})
 (make-user)               ; => {:user-id "ea56a233-deb7-4d8a-93a1-efbc10b2c7ea"}
 (make-user "test")        ; => {:user-id "test"}
+
+;; keyword arguments
+(defn make-user
+  [username & {:keys [email join-date]
+               :or {join-date (java.util.Date.)}}]
+  {:username username
+   :email email
+   :join-date join-date
+   ;; 2.592e9 -> one month in ms
+   :exp-date (java.util.Date. (long (+ 2.592e9 (.getTime join-date))))})
+(make-user "martin") ; => {:username "martin", :email nil, :join-date #inst "2015-03-16T14:40:51.991-00:00", :exp-date #inst "2015-04-15T14:40:51.991-00:00"}
+(make-user "martin" :email "test@gmail.com" :join-date (java.util.Date. 115 2 17)) ; => {:username "martin", :email "test@gmail.com", :join-date #inst "2015-03-16T16:00:00.000-00:00", :exp-date #inst "2015-04-15T16:00:00.000-00:00"}
+
+;; Note, strings or numbers or even collections can be the key
+(defn foo
+  [& {k ["m" 7]}]                       ; ["m" 7] is treated as key
+  (inc k))
+(foo ["m" 7] 9)                         ; => 10
+
+;; function literial, anonymous function sugar
+(#(Math/pow %1 %2) 2 3)                 ; => 8.0
+'#(Math/pow %1 %2) ; => (fn* [p1__7171# p2__7172#] (Math/pow p1__7171# p2__7172#))
+; need to use `do' explicitly when multi statements
+(#(Do (println %1)
+      (println %2)) "hello" "world")
+; first argument can just use %
+'#(Math/pow % %2) ; => (fn* [p1__7207# p2__7208#] (Math/pow p1__7207# p2__7208#))
+; rest syntax
+(#(apply + %&) 1 2 3 4)                 ; => 10
+;; Function literals cannot be nested, so #(#()) will raises error
+
+;;; Conditionals
+;;-----------------------------------------------------------
+;; conditionals determine logical truth to be anything other than `nil' and `false'
+(if "hi" \t)                            ; => \t
+(if 2 \t)                               ; => \t
+(if nil \t \f)                          ; => \f
+(if false \t \f)                        ; => \f
+(if (not true) \t)                      ; => nil
+; when
+(when true \t)                          ; => \t
+(when false \t)                         ; => nil
+; cond
+(#(cond (> %1 0) 1
+        (= %1 0) 0
+        (< %1 0) -1) 3)                 ; => 1
+; if-let, when-let
+(if-let [c true] \t \f)                 ; => \t
+(if-let [c false] \t \f)                ; => \f
+(when-let [c true] \t \f)               ; => \f
+;; true? and false? are only used for boolean
+(true? true)                            ; => true
+(true? 1)                               ; => false
+
+;;; Looping
+;;-----------------------------------------------------------
+;; recur is used for tail call optimization, it do not consume stack space
+(loop [x 6]
+  (println "x is" x)
+  (if (neg? x)
+    x
+    (recur (dec x))))                   ; => -1
+(defn countdown
+  [x]
+  (if (zero? x)
+    :zero!
+    (do (println x)
+        (recur (dec x)))))
+(countdown 2)
+(defn feb
+  ([n] (feb n 0))
+  ([n sum]
+   (cond
+     (zero? x) sum
+     (= 1 x) (+ sum 1)
+     true (do ()
+              (recur (dec x))))))
