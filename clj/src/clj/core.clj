@@ -24,46 +24,46 @@ nil                                     ; => nil
 
 ;; character
 (class \a)                              ; => java.lang.Character
-                                        ; unicode
+;; unicode
 \u00ff                                  ; => \ÿ
-                                        ; octal
+;; octal
 \o41                                    ; => \!
-                                        ; special characters
+;; special characters
 \tab                                    ; => \tab
 \space                                  ; => \space
 
 ;; keywords
-                                        ; map
+;; map
 (def pizza {:name "test's"
             :location "sh"
             ::location "martin"})
-                                        ; get value by keyword
+;; get value by keyword
 (:location pizza)                       ; => "sh"
-                                        ; with namespace
+;; with namespace
 (:clj.core/location pizza)              ; => "martin"
 
 ;; symbols, must start with non-numeric, can contain *, +, -, !, _, ?
-                                        ; avarage is a symbol
+;; avarage is a symbol
 (avarage [1 2])
 
 ;; numbers
 42                                      ; => 42
 (class 42)                              ; => java.lang.Long
-                                        ; 16
+;; 16
 0xff                                    ; => 255
-                                        ; 2
+;; 2
 2r111                                   ; => 7
-                                        ; 8
+;; 8
 040                                     ; => 32
-                                        ; any
+;; any
 5r11                                    ; => 6
-                                        ; double
+;; double
 3.14                                    ; => 3.14
-                                        ; BigInt
+;; BigInt
 42N                                     ; => 42N
-                                        ; BigDecimal
+;; BigDecimal
 0.01M                                   ; => 0.01M
-                                        ; Ratio
+;; Ratio
 3/2                                     ; => 3/2
 (* 0.033 100)                           ; => 3.3000000000000003
 (* 0.033M 100)                          ; => 3.300M
@@ -81,22 +81,22 @@ nil                                     ; => nil
 
 ;;; Collections
 ;;-----------------------------------------------------------
-                                        ; list
+;; list
 '(a b :name 3.5)                        ; => (a b :name 3.5)
-                                        ; vector
+;; vector
 ['a 'b :name 3.5]                       ; => [a b :name 3.5]
-                                        ; map
+;; map
 {:name "martin" :age "25"}              ; => {:age "25", :name "martin"}
-                                        ; set
+;; set
 #{1 2 :name}                            ; => #{1 :name 2}
 
 ;;; Namespaces
-                                        ; define vars(in current namespace), vars are not variables
+;; define vars(in current namespace), vars are not variables
 (def x 1)                               ; => #'clj.core/x
-                                        ; current namespace
+;; current namespace
 *ns*                                    ; => #<Namespace clj.core>
 java.util.List                          ; => java.util.List
-                                        ; all the vars in clojure.core can be accessed without namespace-qualifying
+;; all the vars in clojure.core can be accessed without namespace-qualifying
 filter                          ; => #<core$filter clojure.core$filter@5bf3255f>
 
 ;;; Special forms
@@ -116,7 +116,7 @@ filter                          ; => #<core$filter clojure.core$filter@5bf3255f>
 
 ;; def, define vars
 (def p "foo")
-p                                       ; "foo"
+p                       ; => "foo"
 
 ;; let, local bindings
 (let
@@ -124,7 +124,7 @@ p                                       ; "foo"
      b (inc (rand-int 6))]
   (println (format "You rolled a %s and b %s" a b))
   (+ a b))
-; _ is used for ignore name binding
+;; _ is used for ignore name binding
 (defn hypot
   [x y]
   (let [x2 (* x x)
@@ -149,10 +149,10 @@ p                                       ; "foo"
   (println "zx is" zx)                 ; zx is 4
   (println "zy is" zy)                 ; zy is 6
   )
-; bind rest of the vector, return a sequence
+;; bind rest of the vector, return a sequence
 (let [[x & r] v]
   r)                                    ; => (a 5 [4 6])
-; use :as to bind original vector
+;; use :as to bind original vector
 (let [[x _ z :as origin] v]
   (conj origin (+ x z)))                ; => [3 a 5 [4 6] 8]
 
@@ -167,11 +167,11 @@ p                                       ; "foo"
   (println "b is" b)                    ; b is 2
   (println "c is" c)                    ; c is 88
   )
-; map destructuring with vector by index
+;; map destructuring with vector by index
 (let [{a 3 b 5} [1 2 3 4 5 6]]
   (println "a is" a)                    ; a is 4
   (println "b is" b))                   ; b is 6
-; nested
+                                        ; nested
 (let [{{a :e} :d} m]
   (println "a is" a))                   ; a is 6
 
@@ -190,7 +190,7 @@ p                                       ; "foo"
        :strs [age]
        :syms [location]} user]
   [name age location])                  ; => ["Martin" 26 "Shanghai"]
-; rest
+;; rest
 (def user-info ["Martin" 1989 :city "Shanghai" :age 26])
 (let [[name birth & {:keys [city age]}] user-info]
   [city age])                           ; => ["Shanghai" 26]
@@ -212,7 +212,7 @@ p                                       ; "foo"
 (concat-rest 0 1 2 3 4)                 ; => "123"
 
 (defn make-user
-  ; use vector because the rest args is a list
+  ;; use vector because the rest args is a list
   [& [user-id]]
   {:user-id (or user-id
                 (str (java.util.UUID/randomUUID)))})
@@ -240,12 +240,12 @@ p                                       ; "foo"
 ;; function literial, anonymous function sugar
 (#(Math/pow %1 %2) 2 3)                 ; => 8.0
 '#(Math/pow %1 %2) ; => (fn* [p1__7171# p2__7172#] (Math/pow p1__7171# p2__7172#))
-; need to use `do' explicitly when multi statements
+;; need to use `do' explicitly when multi statements
 (#(Do (println %1)
       (println %2)) "hello" "world")
-; first argument can just use %
+;; first argument can just use %
 '#(Math/pow % %2) ; => (fn* [p1__7207# p2__7208#] (Math/pow p1__7207# p2__7208#))
-; rest syntax
+;; rest syntax
 (#(apply + %&) 1 2 3 4)                 ; => 10
 ;; Function literals cannot be nested, so #(#()) will raises error
 
@@ -257,14 +257,14 @@ p                                       ; "foo"
 (if nil \t \f)                          ; => \f
 (if false \t \f)                        ; => \f
 (if (not true) \t)                      ; => nil
-; when
+;; when
 (when true \t)                          ; => \t
 (when false \t)                         ; => nil
-; cond
+;; cond
 (#(cond (> %1 0) 1
         (= %1 0) 0
         (< %1 0) -1) 3)                 ; => 1
-; if-let, when-let
+;; if-let, when-let
 (if-let [c true] \t \f)                 ; => \t
 (if-let [c false] \t \f)                ; => \f
 (when-let [c true] \t \f)               ; => \f
@@ -320,7 +320,7 @@ p                                       ; "foo"
 (eval x)
 (defn embedded-repl
   "A naive Clojure REPL implementation. Enter `:quit`
-to exit."
+  to exit."
   []
   (print (str (ns-name *ns*) ">>> "))
   (flush)
@@ -329,7 +329,7 @@ to exit."
     (when (not= :quit value)
       (println value)
       (recur))))
-;(embedded-repl)
+;;(embedded-repl)
 
 ;;; Functional Programming
 ;;-----------------------------------------------------------
@@ -342,17 +342,47 @@ to exit."
            (< %1 0) %2
            (< %2 0) %1
            true (+ %1 %2)) [1 -2 3 -4]) ; => 4
-; can optionally provide an initial value
+;; can optionally provide an initial value
 (reduce + 30 [1 2 3 4])                 ; => 40
 (reduce (fn [map v]
           (assoc map v (* v v)))
         {} [1 2 3 4])                   ; => {4 16, 3 9, 2 4, 1 1}
 
-;; apply
+;; apply, apply will take arguments from an vector
 (apply * 2 3 [2 3])                     ; => 36
+(#(apply map * %&) [1 2 3] [4 5 6] [7 8 9])
+(apply map * [[1 2 3] [2 2 2]])
 
 ;; partial
 (def only-string (partial filter string?))
 (only-string [1 "2" 3 5 "b"])           ; => ("2" "b")
-(#(apply map * %&) [1 2 3] [4 5 6] [7 8 9])
-(apply map *  [[1 2 3] [2 2 2]])
+
+;; comp, like a pipline, from right to left, accepted args is decided by last func
+(def negated-sum-str (comp str - +))
+(negated-sum-str 1 2 3 4)               ; => "-10"
+;; is the same as:
+((fn [& rest]
+   (str (- (apply + rest)))) 1 2 3 4)   ; => "-10"
+
+;; camel -> keyword
+(def camel->keyword
+  (comp
+   keyword
+   clojure.string/join
+   (partial interpose "-")
+   (partial map clojure.string/lower-case)
+   #(clojure.string/split % #"(?<=[a-z])(?=[A-Z])")))
+(camel->keyword "TestKeyword")          ; => :test-keyword
+(camel->keyword "thisIsTest")           ; => :this-is-test
+
+;; ->> macro
+((fn [s]
+   (->>
+    (clojure.string/split s #"(?<=[a-z])(?=[A-Z])")
+    (map clojure.string/lower-case)
+    (interpose "-")
+    clojure.string/join
+    keyword
+    )) "thisIsTest")                    ; => :this-is-test
+(macroexpand '(->> (op1 arg) (op2 a) op3)) ; => (op3 (op2 a (op1 arg)))
+(macroexpand '(-> (op1 arg) (op2 a) op3))  ; => (op3 (op2 (op1 arg) a))
