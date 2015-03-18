@@ -330,3 +330,29 @@ to exit."
       (println value)
       (recur))))
 ;(embedded-repl)
+
+;;; Functional Programming
+;;-----------------------------------------------------------
+;; map, accept one func, and one or more collections
+(map clojure.string/lower-case ["This" "Is" "a" "TesT"]) ; => ("this" "is" "a" "test")
+(map * [1 2 3 4] [5 6 7])                                ; => (5 12 21)
+;; reduce
+(reduce #(cond
+           (and (< %1 0) (< %2 0)) 0
+           (< %1 0) %2
+           (< %2 0) %1
+           true (+ %1 %2)) [1 -2 3 -4]) ; => 4
+; can optionally provide an initial value
+(reduce + 30 [1 2 3 4])                 ; => 40
+(reduce (fn [map v]
+          (assoc map v (* v v)))
+        {} [1 2 3 4])                   ; => {4 16, 3 9, 2 4, 1 1}
+
+;; apply
+(apply * 2 3 [2 3])                     ; => 36
+
+;; partial
+(def only-string (partial filter string?))
+(only-string [1 "2" 3 5 "b"])           ; => ("2" "b")
+(#(apply map * %&) [1 2 3] [4 5 6] [7 8 9])
+(apply map *  [[1 2 3] [2 2 2]])
