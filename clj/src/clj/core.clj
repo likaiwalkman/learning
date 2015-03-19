@@ -386,3 +386,84 @@ p                       ; => "foo"
     )) "thisIsTest")                    ; => :this-is-test
 (macroexpand '(->> (op1 arg) (op2 a) op3)) ; => (op3 (op2 a (op1 arg)))
 (macroexpand '(-> (op1 arg) (op2 a) op3))  ; => (op3 (op2 (op1 arg) a))
+
+(def camel-pairs->map
+  (comp
+   (partial apply hash-map)
+   (partial map-indexed (fn
+                          [i v]
+                          (if (odd? i)
+                            v
+                            (camel->keyword v))))))
+(camel-pairs->map ["CamelTest" 1 "AnotherTest" 2]) ; => {:camel-test 1, :another-test 2}
+
+;;; High-Order Functions
+;;-----------------------------------------------------------
+;; build a log system
+(defn print-logger
+  [writer]
+  ;; after binding exit, *out* will be the original value
+  #(binding [*out* writer]
+     (println %)))
+(def *out*-logger
+  (print-logger *out*))
+(*out*-logger "test")                   ; "test"
+
+;; log to a string
+(def writer (java.io.StringWriter.))
+(def retained-logger (print-logger writer))
+(retained-logger "hi there, StringWriter") ; => nil
+(str writer)                               ; => "hi there, StringWriter\n"
+
+;; log to a file
+(defn file-logger
+  [file]
+  #(with-open [f (clojure.java.io/writer file :append true)]
+     ((print-logger f) %)))
+(def log->file (file-logger "message.log"))
+(log->file "haha")
+
+;; multi loggers
+(defn multi-logger
+  [& logger-fns]
+  #(doseq [f logger-fns]
+     (f %)))
+(def log (multi-logger
+          (print-logger *out*)
+          (file-logger "message.log")))
+(log "this is a test")
+
+;; timestamp logger
+(defn timestamped-logger
+  [logger]
+  #(logger (format "[%1$tY-%1$tm-%1$te %1$tH:%1$tM:%1$tS] %2$s"
+                   (java.util.Date.) %)))
+(def log-timestamped
+  (timestamped-logger log))
+(log-timestamped "now test timestamped log")
+
+;;; Pure Functions, no side effects
+;; memoize, puer functions are suit for memoize
+(defn prime?
+  [n]
+  (cond
+    (== 1 n) false
+    (== 2 n) true
+    (even? n) false
+    :else (->> (range 3 (inc (Math/sqrt n)) 2)
+               (filter #(zero? (rem n %)))
+               empty?)))
+(time (prime? 1125899906842679))        ; => true
+(let [m-prime? (memoize prime?)]
+  (time (m-prime? 1125899906842679))    ; "Elapsed time: 842.35 msecs"
+  (time (m-prime? 1125899906842679)))   ; "Elapsed time: 0.008 msecs"
+
+;;
+
+;;;; Thinking
+;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
+;; 对于有状态依赖的函数，我们一般需要mock data来测试，但是你永远无法保证能cover所有的state。而pure函数没有这个问题。
+;; 但是关键是，真实的场景中，交互永远是状态依赖的。我们无法避免状态，从这个角度来讲，我们要做的，就是尽量保证Pure Function，然后把状态依赖收集起来，集中处理
+;; Pure Function的好处：easy to reason about(易于推导), 便于测试, 可缓存化, 可并行化
+
+;; 2. Memoize可能导致cache不被GC回收，产生memory leak
