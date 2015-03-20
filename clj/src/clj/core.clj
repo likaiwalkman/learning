@@ -458,7 +458,81 @@ p                       ; => "foo"
   (time (m-prime? 1125899906842679))    ; "Elapsed time: 842.35 msecs"
   (time (m-prime? 1125899906842679)))   ; "Elapsed time: 0.008 msecs"
 
-;;
+;;;; Collections and Data Structures
+;;-----------------------------------------------------------
+;; Abstractions over implementations
+(def v [1 2 3])
+(conj v 4 5)                            ; => [1 2 3 4 5]
+(seq v)                                 ; => (1 2 3)
+(def m {:a 5 :b 6})                     ; => #'clj.core/m
+(conj m [:c 7])                         ; => {:c 7, :b 6, :a 5}
+(seq m)                                 ; => ([:b 6] [:a 5])
+(def s #{1 2 3})                        ; => #'clj.core/s
+(conj s 4)                              ; => #{1 4 3 2}
+(conj s 3 4)                            ; => #{1 4 3 2}
+(seq s)                                 ; => (1 3 2)
+(def lst '(1 2 3))                      ; => #'clj.core/lst
+(conj lst 0 4)                          ; => (4 0 1 2 3)
+(seq lst)                               ; => (1 2 3)
+;; into
+(into v [4 5])                          ; => [1 2 3 4 5]
+(into lst '(4 5))                       ; => (5 4 1 2 3)
+(into m [[:c 7] [:d 8]])                ; => {:c 7, :b 6, :d 8, :a 5}
+(into #{1 2} [2 3 1])                   ; => #{1 3 2}
+(into [1] {:a 1 :b 2})                  ; => [1 [:b 2] [:a 1]]
+
+;;; Collection
+;; All data structures in Clojure participate in the common `collection' abstraction
+;; they all can use conj, seq, count, empty, etc functions
+(conj '(1 2) '(3))                      ; => ((3) 1 2)
+(into '(1 2) ['(3)])                    ; => ((3) 1 2)
+
+;; (empty coll), create a empty collection with the same type of coll
+(defn swap-pairs
+  [sequential]
+  (into (empty sequential)
+        (interleave
+         (take-nth 2 (drop 1 sequential))
+         (take-nth 2 sequential))))
+(swap-pairs (apply list (range 10)))    ; => (8 9 6 7 4 5 2 3 0 1)
+(swap-pairs (apply vector (range 10)))  ; => [1 0 3 2 5 4 7 6 9 8]
+
+(defn map-map
+  [f m]
+  (into (empty m)
+        (for [[k v] m]
+          [k (f v)])))
+(map-map inc (hash-map :a 1 :b 2 :c 5))   ; => {:c 6, :b 3, :a 2}
+(map-map inc (sorted-map :a 1 :b 2 :c 5)) ; => {:a 2, :b 3, :c 6}
+
+;; count
+(count [1 2 3])                         ; => 3
+(count {:a 1 :b 2 :c 3})                ; => 3
+(count #{1 2 3})                        ; => 3
+(count '(1 2 3))                        ; => 3
+
+;;; Sequences
+;; seq
+(seq "clojure")                         ; => (\c \l \o \j \u \r \e)
+(seq {:a 3 :b 2})                       ; => ([:b 2] [:a 3])
+(seq (java.util.ArrayList. (range 3)))  ; => (0 1 2)
+(seq (into-array ["Clojure" "Programming"])) ; => ("Clojure" "Programming")
+(seq nil)                                    ; => nil
+(seq [])                                     ; => nil
+
+;; some functions will call `seq' implicitly, for example:
+(map clojure.string/upper-case "clojure") ; => ("C" "L" "O" "J" "U" "R" "E")
+
+(first "clojure")                       ; => \c
+(rest "clojure")                        ; => (\l \o \j \u \r \e)
+(next "clojure")                        ; => (\l \o \j \u \r \e)
+(rest [])                               ; => ()
+(next [])                               ; => nil
+
+;; sequences are not iterators
+
+
+
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
