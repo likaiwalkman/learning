@@ -241,7 +241,7 @@ p                       ; => "foo"
 (#(Math/pow %1 %2) 2 3)                 ; => 8.0
 '#(Math/pow %1 %2) ; => (fn* [p1__7171# p2__7172#] (Math/pow p1__7171# p2__7172#))
 ;; need to use `do' explicitly when multi statements
-(#(Do (println %1)
+(#(do (println %1)
       (println %2)) "hello" "world")
 ;; first argument can just use %
 '#(Math/pow % %2) ; => (fn* [p1__7207# p2__7208#] (Math/pow p1__7207# p2__7208#))
@@ -530,8 +530,188 @@ p                       ; => "foo"
 (next [])                               ; => nil
 
 ;; sequences are not iterators
+(doseq [x (range 3)]
+  (println x))
+(let [r (range 3)
+      rst (rest r)]
+  (pr (map str rst))
+  (pr (map #(+ 100 %) r))
+  (pr (conj r -1) (conj rst -42)))
+;; sequences are not lists, lists always track their size
+(let [s (range 1e6)]
+  (time (count s)))                     ; "Elapsed time: 62.184 msecs"
+(let [s (apply list (range 1e6))]
+  (time (count s)))                     ; "Elapsed time: 0.019 msecs"
+;; create sequences
+(cons 0 (range 1 5))                    ; => (0 1 2 3 4)
+(cons :a [:b :c :d])                    ; => (:a :b :c :d)
+(cons 0 (cons 1 (cons 2 [])))           ; => (0 1 2)
+(list* 0 1 2 [])                        ; => (0 1 2)
 
+;; lazy seq, it's value will realized when access the value, once realized, it will retain
+(defn random-ints
+  [limit]
+  (lazy-seq
+   (println "realizing random number")
+   (cons (rand-int limit)
+         (random-ints limit))))
+(def rands (take 10 (random-ints 50)))
+(first rands)                           ; => 5
+(nth rands 3)                           ; => 1
+(count rands)                           ; => 10
+;; same as:
+(def rands (repeatedly 10 (fn
+                         []
+                         (println "realizing...")
+                         (rand-int 50))))
+;; next will check the head of the seq(to check if empty)
+(def x (next (random-ints 50)))         ; realizing random number\n realizing random number
+(def x (rest (random-ints 50)))         ; realizing random number
+;; Sequential destructuring always use `next'
+(let [[x & rest] (random-ints 50)])     ; realizing random number\n realizing random number
 
+;; split-with
+(split-with neg? (range -5 5))          ; => [(-5 -4 -3 -2 -1) (0 1 2 3 4)]
+;; Head retention, when reference the head of a seq, all of the seq elements will not be GC
+(let [[t d] (split-with #(< % 12) (range 1e8))]
+  ;; below will cause memory issue, because when counting d(large size),
+  ;; t are referencing the head of seq that range generated
+  #_[(count d) (count t)]
+  ;; below will not have issue, when counting d, t(small size) is finished and released
+  #_[(count t) (count d)])                ; => [2 5]
+
+;;; Associate
+(def m {:a 1, :b 2, :c 3})              ; => #'clj.core/m
+(get m :b)                              ; => 2
+(get m :d)                              ; => nil
+(get m :d "not-found")                  ; => "not-found"
+(assoc m :d 4 :e 5)                     ; => {:e 5, :c 3, :b 2, :d 4, :a 1}
+(dissoc m :b :a)                        ; => {:c 3}
+;; also works for vector
+(def v [1 2 3])
+(get v 1)                               ; => 2
+(get v 10)                              ; => nil
+(get v 10 "not-found")                  ; => "not-found"
+(assoc v 1 4 3 5)                       ; => [1 4 3 5]
+;; for set
+(get #{'a 'b 'c} 'a)                    ; => a
+(get #{'a 'b 'c} 't)                    ; => nil
+(when (get #{'a 'b 'c} 'b)
+  (println "it contains `b'"))          ; it contians `b'
+
+;;; contains? check if contains specific `key'(not checking value)
+(contains? [1 2 3] 0)                   ; => true
+(contains? {:a 3 :b 4} :b)              ; => true
+(contains? #{1 2 3} 0)                  ; => false
+(get "clojure" 3)                       ; => \j
+(contains? (java.util.HashMap.) "not-there") ; => false
+(get (into-array [1 2 3]) 0)                 ; => 1
+;; beware of nil value, or false value
+(get {:a nil} :a)                       ; => nil
+(find {:a nil} :a)                      ; => [:a nil]
+;; find is used for destructuring
+(if-let [e (find {:a 3 :b 4} :a)]
+  (format "found %s=>%s" (key e) (val e))
+  "not found")                          ; => "found :a=>3"
+(if-let [[k v] (find {:a 3 :b 4} :a)]
+  (format "found %s=>%s" k v)
+  "not found")                          ; => "found :a=>3"
+
+;;; Indexed are not recommended. nth is used for index, while get is more general
+(nth [:a :b :c] 2)                      ; => :c
+(get [:a :b :c] 2)                      ; => :c
+#_(nth [:a :b :c] 3)                    ; java.lang.IndexOutOfBoundsException
+(get [:a :b :c] 3)                      ; => nil
+;; nth = get when give default value
+(nth [:a :b :c] 3 :not-found)           ; => :not-found
+(get [:a :b :c] 3 :not-found)           ; => :not-found
+
+;;; Stack, list or vector can be used as Stack
+;; list as stack
+(conj '() 1)                            ; => (1)
+(conj '(2 1) 3)                         ; => (3 2 1)
+(peek '(3 2 1))                         ; => 3
+(pop '(3 2 1))                          ; => (2 1)
+;; vector as stack
+(conj [1 2] 3)                          ; => [1 2 3]
+(peek [1 2 3])                          ; => 3
+(pop [1 2 3])                           ; => [1 2]
+
+;;; Set
+(get #{1 2 3} 2)                        ; => 2
+(disj #{1 2 3} 2 1 5)                   ; => #{3}
+
+;;; Sorted
+(def sm (sorted-map :z 5 :x 9 :y 0 :b 2 :a 3 :c 4)) ; => #'clj.core/sm
+sm                                     ; => {:a 3, :b 2, :c 4, :x 9, :y 0, :z 5}
+(rseq sm)                       ; => ([:z 5] [:y 0] [:x 9] [:c 4] [:b 2] [:a 3])
+(subseq sm <= :c)               ; => ([:a 3] [:b 2] [:c 4])
+(subseq sm > :b <= :y)          ; => ([:c 4] [:x 9] [:y 0])
+(rsubseq sm > :b <= :y)         ; => ([:y 0] [:x 9] [:c 4])
+
+;; compare
+(compare 1 2)                           ; => -1
+(compare "ac" "ab")                     ; => 1
+(compare [1 1 4] [1 2 3])               ; => -1
+;; sort
+(sort < (repeatedly 10 #(rand-int 100))) ; => (0 14 19 23 24 31 44 52 61 89)
+(sort-by first > (map-indexed vector "Clojure")) ; => ([6 \e] [5 \r] [4 \u] [3 \j] [2 \o] [1 \l] [0 \C])
+(sorted-map-by compare :z 5 :x 7 :y 3 :b 2 :a 3 :c 7) ; => {:a 3, :b 2, :c 7, :x 7, :y 3, :z 5}
+(sorted-map-by (comp - compare) :z 5 :x 7 :y 3 :b 2 :a 3 :c 7) ; => {:z 5, :y 3, :x 7, :c 7, :b 2, :a 3}
+
+(defn magnitude
+  [x]
+  (->> x Math/log10 Math/floor))
+(magnitude 100)                         ; => 2.0
+(magnitude 11)                          ; => 1.0
+(defn compare-magnitude
+  [a b]
+  (< (magnitude a) (magnitude b)))
+((comparator compare-magnitude) 10 100) ; => -1
+((comparator compare-magnitude) 100 77) ; => 1
+((comparator compare-magnitude) 10 77)  ; => 0
+(compare-magnitude 100 10) ; => false
+
+(def s (sorted-set-by compare-magnitude 10 100 30))
+(conj s 600)                            ; => #{10 100}
+(disj s 750)                            ; => #{10}
+(contains? s 135)                       ; => true
+
+;; interpolate
+(defn interpolate
+  "Takes a collection of points (as [x y] tuples), returning a function
+which is a linear interpolation between those points."
+  [points]
+  (let [results (into (sorted-map) (map vec points))]
+    (fn [x]
+      (let [[xa ya] (first (rsubseq results <= x))
+            [xb yb] (first (subseq results > x))]
+        (pr xa " " xb " " ya " " yb)
+        (if (and xa xb)
+          (/ (+ (* ya (- xb x)) (* yb (- x xa)))
+             (- xb xa))
+          (or ya yb))))))
+(def f (interpolate [[0 0] [10 10] [15 5]]))
+(map f [2 10 12])                       ; => (2 10 8)
+
+;;; Concise Collections access
+;; collections are functions
+([:a :b :c] 2)                          ; => :c
+({:a 1 :b 2} :c 3)                      ; => 3
+;; keywords are functions
+(:a {:a 2})                             ; => 2
+(#(:foo %) nil)                         ; => nil
+#_(#(% :foo) nil)                       ; NullPointerException
+;; collections and keys are high-order functions
+(map :name [{:name "Martin" :age 26}
+            {:name "Daisy" :age 26}
+            {:name "No" :age 44}])      ; => ("Martin" "Daisy" "No")
+(some #{1 2 3} [5 3 4])                 ; => 3
+(filter :age [{:age 20} {:name "t"}])   ; => ({:age 20})
+(filter (comp (partial >= 30) :age)
+        [{:name "Martin" :age 26}
+         {:name "Daisy" :age 26}
+         {:name "No" :age 44}]) ; => ({:age 26, :name "Martin"} {:age 26, :name "Daisy"})
 
 
 ;;;; Thinking
@@ -541,3 +721,6 @@ p                       ; => "foo"
 ;; Pure Function的好处：easy to reason about(易于推导), 便于测试, 可缓存化, 可并行化
 
 ;; 2. Memoize可能导致cache不被GC回收，产生memory leak
+
+;; 3. Sequence大多是lazy的，且只有seq会存在laziness。在处理lazy的情况时，一定要注意尽量无side effects, 因为lazy seq只有在access时才会realize, 相应的代码如果有side effect, 将会难以控制
+;; lazy seq常常会很大，甚至是无限的。这个时候, 如果对seq的head存在引用，后边的所有element将不能被GC，这容易导致内存溢出
