@@ -752,6 +752,14 @@ which is a linear interpolation between those points."
            #(+ %1 (:total %2)) 0 orders) ; => {["Wile Coyote" "Anvil"] 900, ["Elmer Fudd" "Anvil"] 300, ["Wile Coyote" "Hole"] 1000, ["Elmer Fudd" "Shells"] 100, ["Elmer Fudd" "Shotgun"] 800, ["Wile Coyote" "Dynamite"] 5000, ["Wile Coyote" "Clock"] 300}
 
 ;;; Immutability and Persistence
+;; Most of the operations in clojure do not modify data
+(def v (vec (range 1e6)))
+(count v)                               ; => 1000000
+(def v2 (conj v 1e6))                   ; => #'clj.core/v2
+(count v2)                              ; => 1000001
+(count v)                               ; => 1000000
+;; Persistence and Structural Sharing, so that immutability will not cause performance issue
+
 
 
 ;;;; Thinking
@@ -764,3 +772,5 @@ which is a linear interpolation between those points."
 
 ;; 3. Sequence大多是lazy的，且只有seq会存在laziness。在处理lazy的情况时，一定要注意尽量无side effects, 因为lazy seq只有在access时才会realize, 相应的代码如果有side effect, 将会难以控制
 ;; lazy seq常常会很大，甚至是无限的。这个时候, 如果对seq的head存在引用，后边的所有element将不能被GC，这容易导致内存溢出
+
+;; 4. Persistence不是我们常见的持久化的概念，而是函数式编程中保证immutable数据的操作的performance的技术。Clojure里是通过Structural sharing来实现的
