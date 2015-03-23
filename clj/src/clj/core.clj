@@ -713,6 +713,46 @@ which is a linear interpolation between those points."
          {:name "Daisy" :age 26}
          {:name "No" :age 44}]) ; => ({:age 26, :name "Martin"} {:age 26, :name "Daisy"})
 
+;; beaware of nil/false
+(remove #{false 3 5} (cons false (range 5))) ; => (false 0 1 2 4)
+(remove (partial contains? #{false 3 5}) (cons false (range 5))) ; => (0 1 2 4)
+
+;;; Data Structure Types
+;; lists are linked list
+'(1 2 (+ 1 2))                          ; => (1 2 (+ 1 2))
+(list 1 2 (+ 1 2))                      ; => (1 2 3)
+;; Vectors, just match the expectations to java.util.ArrayList
+(vector 1 2 3)                          ; => [1 2 3]
+(vec (range 3))                         ; => [0 1 2]
+;; Sets
+(hash-set 1 2 3 1 3)                    ; => #{1 3 2}
+(set [1 2 3 1 3])                       ; => #{1 3 2}
+;; Maps
+(keys {:a 1 :b 2})                      ; => (:b :a)
+(vals {:a 1 :b 2})                      ; => (2 1)
+(group-by #(rem % 3) (range 10))        ; => {0 [0 3 6 9], 1 [1 4 7], 2 [2 5 8]}
+(group-by (juxt :name :age) [{:name "Martin" :age 26}
+                             {:name "Daisy" :age 26}]) ; => {["Martin" 26] [{:age 26, :name "Martin"}], ["Daisy" 26] [{:age 26, :name "Daisy"}]}
+(def orders
+  [{:product "Clock", :customer "Wile Coyote", :qty 6, :total 300}
+   {:product "Dynamite", :customer "Wile Coyote", :qty 20, :total 5000}
+   {:product "Shotgun", :customer "Elmer Fudd", :qty 2, :total 800}
+   {:product "Shells", :customer "Elmer Fudd", :qty 4, :total 100}
+   {:product "Hole", :customer "Wile Coyote", :qty 1, :total 1000}
+   {:product "Anvil", :customer "Elmer Fudd", :qty 2, :total 300}
+   {:product "Anvil", :customer "Wile Coyote", :qty 6, :total 900}]) ; => #'clj.core/orders
+(defn reduce-by
+  [key-fn f init coll]
+  (reduce (fn [summaries x]
+            (let [k (key-fn x)]
+              (assoc summaries k (f (summaries k init) x))))
+          {} coll))
+(reduce-by :customer #(+ %1 (:total %2)) 0 orders) ; => {"Elmer Fudd" 1200, "Wile Coyote" 7200}
+(reduce-by (juxt :customer :product)
+           #(+ %1 (:total %2)) 0 orders) ; => {["Wile Coyote" "Anvil"] 900, ["Elmer Fudd" "Anvil"] 300, ["Wile Coyote" "Hole"] 1000, ["Elmer Fudd" "Shells"] 100, ["Elmer Fudd" "Shotgun"] 800, ["Wile Coyote" "Dynamite"] 5000, ["Wile Coyote" "Clock"] 300}
+
+;;; Immutability and Persistence
+
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
