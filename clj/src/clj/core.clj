@@ -561,9 +561,9 @@ p                       ; => "foo"
 (count rands)                           ; => 10
 ;; same as:
 (def rands (repeatedly 10 (fn
-                         []
-                         (println "realizing...")
-                         (rand-int 50))))
+                            []
+                            (println "realizing...")
+                            (rand-int 50))))
 ;; next will check the head of the seq(to check if empty)
 (def x (next (random-ints 50)))         ; realizing random number\n realizing random number
 (def x (rest (random-ints 50)))         ; realizing random number
@@ -680,7 +680,7 @@ sm                                     ; => {:a 3, :b 2, :c 4, :x 9, :y 0, :z 5}
 ;; interpolate
 (defn interpolate
   "Takes a collection of points (as [x y] tuples), returning a function
-which is a linear interpolation between those points."
+  which is a linear interpolation between those points."
   [points]
   (let [results (into (sorted-map) (map vec points))]
     (fn [x]
@@ -751,6 +751,18 @@ which is a linear interpolation between those points."
 (reduce-by (juxt :customer :product)
            #(+ %1 (:total %2)) 0 orders) ; => {["Wile Coyote" "Anvil"] 900, ["Elmer Fudd" "Anvil"] 300, ["Wile Coyote" "Hole"] 1000, ["Elmer Fudd" "Shells"] 100, ["Elmer Fudd" "Shotgun"] 800, ["Wile Coyote" "Dynamite"] 5000, ["Wile Coyote" "Clock"] 300}
 
+(get-in {:a {:b 2} :c 3} [:a :b])       ; => 2
+(assoc-in {} [:a :b :c] 2)              ; => {:a {:b {:c 2}}}
+(defn reduce-by-in
+  [keys-fn f init coll]
+  (reduce (fn [summaries x]
+            (let [ks (keys-fn x)]
+              (assoc-in summaries ks
+                        (f (get-in summaries ks init) x))))
+          {} coll))
+(reduce-by-in (juxt :customer :product)
+              #(+ %1 (:total %2)) 0 orders) ; => {"Elmer Fudd" {"Anvil" 300, "Shells" 100, "Shotgun" 800}, "Wile Coyote" {"Anvil" 900, "Hole" 1000, "Dynamite" 5000, "Clock" 300}}
+
 ;;; Immutability and Persistence
 ;; Most of the operations in clojure do not modify data
 (def v (vec (range 1e6)))
@@ -758,7 +770,141 @@ which is a linear interpolation between those points."
 (def v2 (conj v 1e6))                   ; => #'clj.core/v2
 (count v2)                              ; => 1000001
 (count v)                               ; => 1000000
-;; Persistence and Structural Sharing, so that immutability will not cause performance issue
+
+;; transient
+(def x (transient []))                  ; => #'clj.core/x
+(def y (conj! x 1))                     ; => #'clj.core/y
+(count y)                               ; => 1
+(count x)                               ; => 1
+
+(defn naive-into
+  [coll source]
+  (reduce conj coll source))
+(= (naive-into #{} [1 2 3 5])
+   (into #{} [1 2 3 5]))                ; => true
+;; use do to prevent print 1e6 numbers
+(time (do (into #{} (range 1e6)) nil))  ; "Elapsed time: 422.67 msecs"
+(time (do (naive-into #{} (range 1e6)) nil)) ; "Elapsed time: 828.696 msecs"
+;; fast into by transient
+(defn fast-into
+  [coll source]
+  (persistent! (reduce conj! (transient coll) source)))
+(time (do (fast-into #{} (range 1e6)) nil)) ; "Elapsed time: 374.967 msecs"
+
+;; only vectors and unsorted map/set have transient variants
+(defn transient-capable?
+  [coll]
+  (instance? clojure.lang.IEditableCollection coll))
+(map transient-capable? [[] {} #{}])                     ; => (true true true)
+(map transient-capable? ['() (sorted-map) (sorted-set)]) ; => (false false false)
+;; persistent! a transient will makes the source unusable, and further more, one the thread that created a given transient can access/modify the transient
+(def tv (transient [1 2]))              ; => #'clj.core/tv
+(get tv 0)                              ; => 1
+(persistent! tv)                        ; => [1 2]
+#_(get tv 0)                            ; java.lang.IllegalAccessError
+
+;;; Metedata
+(def a ^{:created (System/currentTimeMillis)} [1 2 3]) ; => #'clj.core/a
+a                                                      ; => [1 2 3]
+(meta a)                                ; => {:created 1427448121001}
+;; short form for true value
+(meta ^:private [1 2 3])                ; => {:private true}
+(meta ^:private ^:static [1 2 3])       ; => {:private true, :static true}
+;; with-meta(replace meta) and vary-meta(update meta)
+(def b (with-meta a (assoc (meta a)
+                           :modified (System/currentTimeMillis))))
+(meta b)                  ; => {:modified 1427448392190, :created 1427448121001}
+(def b (vary-meta a assoc :modified (System/currentTimeMillis))) ; => #'clj.core/b
+(meta b)                  ; => {:modified 1427448415589, :created 1427448121001}
+;; meta will retain when modify data
+(meta (conj a 4))                       ; => {:created 1427448121001}
+
+;;; Algorithm: Conway's game of life
+(defn empty-board
+  "Creates a rectangular empty board of the specific width and height"
+  [w h]
+  (vec (repeat w (vec (repeat h nil)))))
+(defn populate
+  "Turns :on each of the cells specified as [y, x] coordinates"
+  [board living-cells]
+  (reduce (fn [board coordinates]
+            (assoc-in board coordinates :on))
+          board living-cells))
+(def glider (populate (empty-board 6 6)
+                      #{[2 0] [2 1] [2 2] [1 2] [0 1]}))
+(print glider)
+
+(defn neighbours [[x y]]
+  (for [dx [-1 0 1] dy [-1 0 1] :when (not= 0 dx dy)]
+    [(+ dx x) (+ dy y)]))
+(neighbours [3 3])        ; => ([2 2] [2 3] [2 4] [3 2] [3 4] [4 2] [4 3] [4 4])
+
+(defn count-neighbours
+  [board loc]
+  (count (filter #(get-in board %)
+                 (neighbours loc))))
+(defn indexed-step
+  "Yields the next state of the board, using indices to determine neighbors,
+  liveness, etc."
+  [board]
+  (let [w (count board)
+        h (count (first board))]
+    (loop [new-board board x 0 y 0]
+      (cond
+        (>= x w) new-board
+        (>= y h) (recur new-board (inc x) 0)
+        :else (let [new-liveness (case (count-neighbours board [x y])
+                                   2 (get-in board [x y])
+                                   3 :on
+                                   nil)]
+                (recur (assoc-in new-board [x y] new-liveness) x (inc y)))))))
+(-> (iterate indexed-step glider) (nth 8) print)
+;; now refactor by FP style
+(defn indexed-step2
+  [board]
+  (let [w (count board)
+        h (count (first board))]
+    (reduce (fn [new-board x]
+              (reduce (fn [new-board y]
+                        (let [new-liveness (case (count-neighbours board [x y])
+                                             2 (get-in board [x y])
+                                             3 :on
+                                             nil)]
+                          (assoc-in new-board [x y] new-liveness)))
+                      new-board (range h)))
+            board (range w))))
+(-> (iterate indexed-step2 glider) (nth 8) print)
+
+(defn indexed-step3
+  [board]
+  (let [w (count board)
+        h (count (first board))]
+    (reduce (fn [new-board [x y]]
+              (let [new-liveness (case (count-neighbours board [x y])
+                                   2 (get-in board [x y])
+                                   3 :on
+                                   nil)]
+                (assoc-in new-board [x y] new-liveness)))
+            board
+            (for [x (range w) y (range h)]
+              [x y]))))
+(-> (iterate indexed-step glider) (nth 8) print)
+
+;; partition
+(partition 3 1 (range 5))                      ; => ((0 1 2) (1 2 3) (2 3 4))
+(partition 3 1 (concat [nil] (range 5) [nil])) ; => ((nil 0 1) (0 1 2) (1 2 3) (2 3 4) (3 4 nil))
+(defn window
+  "Returns a lazy sequence of 3-item windows centered around each item of coll."
+  [coll]
+  (partition 3 1 (concat [nil] coll [nil])))
+
+(defn cell-block
+  "Creates a sequences of 3x3 windows from a triple of 3 sequences."
+  [[left mid right]]
+  (print left " " mid " " right)
+  (window (map vector
+               (or left (repeat nil)) mid (or right (repeat nil)))))
+
 
 
 
@@ -773,4 +919,6 @@ which is a linear interpolation between those points."
 ;; 3. Sequence大多是lazy的，且只有seq会存在laziness。在处理lazy的情况时，一定要注意尽量无side effects, 因为lazy seq只有在access时才会realize, 相应的代码如果有side effect, 将会难以控制
 ;; lazy seq常常会很大，甚至是无限的。这个时候, 如果对seq的head存在引用，后边的所有element将不能被GC，这容易导致内存溢出
 
-;; 4. Persistence不是我们常见的持久化的概念，而是函数式编程中保证immutable数据的操作的performance的技术。Clojure里是通过Structural sharing来实现的
+;; 4. Persistence不是我们常见的持久化的概念，而是函数式编程中保证immutable数据的操作的performance的技术。Clojure里是通过Structural sharing来实现的，因为immutable, 所有共享不会发生预料之外的问题。为了实现Structural sharing, 几乎所有的数据结构都是由tree构建, 包括hashmap, hashset, sorted-map, sorted-set, vectors
+
+;; 5. Immutable数据还可以方便的实现数据版本化
