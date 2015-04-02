@@ -894,18 +894,27 @@ a                                                      ; => [1 2 3]
 (partition 3 1 (range 5))                      ; => ((0 1 2) (1 2 3) (2 3 4))
 (partition 3 1 (concat [nil] (range 5) [nil])) ; => ((nil 0 1) (0 1 2) (1 2 3) (2 3 4) (3 4 nil))
 (defn window
-  "Returns a lazy sequence of 3-item windows centered around each item of coll."
-  [coll]
-  (partition 3 1 (concat [nil] coll [nil])))
+  "Returns a lazy sequence of 3-item windows centered around each item of coll,
+  padded as necessary with pad or nil."
+  ([coll] (window nil coll))
+  ([pad coll] (partition 3 1 (concat [pad] coll [pad]))))
 
 (defn cell-block
   "Creates a sequences of 3x3 windows from a triple of 3 sequences."
   [[left mid right]]
   (print left " " mid " " right)
-  (window (map vector
-               (or left (repeat nil)) mid (or right (repeat nil)))))
+  (window (map vector left mid right)))
 
-
+(defn liveness
+  "Returns the liveness (nil or :on) of the center cell for
+the next step."
+  [block]
+  (let [[_ [_ center _] _] block]
+    (case (- (count (filter #{:on} (apply concat block)))
+             (if (= :on center) 1 0))
+      2 center
+      3 :on
+      nil)))
 
 
 ;;;; Thinking
