@@ -1,4 +1,5 @@
 (ns clj.core)
+(use 'clojure.pprint)
 
 (defn avarage
   [numbers]
@@ -819,7 +820,10 @@ a                                                      ; => [1 2 3]
 ;; meta will retain when modify data
 (meta (conj a 4))                       ; => {:created 1427448121001}
 
+
+;;-----------------------------------------------------------
 ;;; Algorithm: Conway's game of life
+;;-----------------------------------------------------------
 (defn empty-board
   "Creates a rectangular empty board of the specific width and height"
   [w h]
@@ -832,7 +836,7 @@ a                                                      ; => [1 2 3]
           board living-cells))
 (def glider (populate (empty-board 6 6)
                       #{[2 0] [2 1] [2 2] [1 2] [0 1]}))
-(print glider)
+(pprint glider)
 
 (defn neighbours [[x y]]
   (for [dx [-1 0 1] dy [-1 0 1] :when (not= 0 dx dy)]
@@ -858,7 +862,7 @@ a                                                      ; => [1 2 3]
                                    3 :on
                                    nil)]
                 (recur (assoc-in new-board [x y] new-liveness) x (inc y)))))))
-(-> (iterate indexed-step glider) (nth 8) print)
+(-> (iterate indexed-step glider) (nth 8) pprint)
 ;; now refactor by FP style
 (defn indexed-step2
   [board]
@@ -873,7 +877,7 @@ a                                                      ; => [1 2 3]
                           (assoc-in new-board [x y] new-liveness)))
                       new-board (range h)))
             board (range w))))
-(-> (iterate indexed-step2 glider) (nth 8) print)
+(-> (iterate indexed-step2 glider) (nth 8) pprint)
 
 (defn indexed-step3
   [board]
@@ -888,7 +892,7 @@ a                                                      ; => [1 2 3]
             board
             (for [x (range w) y (range h)]
               [x y]))))
-(-> (iterate indexed-step3 glider) (nth 8) print)
+(-> (iterate indexed-step3 glider) (nth 8) pprint)
 
 ;; partition
 (partition 3 1 (range 5))                      ; => ((0 1 2) (1 2 3) (2 3 4))
@@ -898,15 +902,17 @@ a                                                      ; => [1 2 3]
   padded as necessary with pad or nil."
   ([coll] (window nil coll))
   ([pad coll] (partition 3 1 (concat [pad] coll [pad]))))
+(window (range 5))            ; => ((nil 0 1) (0 1 2) (1 2 3) (2 3 4) (3 4 nil))
 
 (defn cell-block
   "Creates a sequences of 3x3 windows from a triple of 3 sequences."
   [[left mid right]]
   (window (map vector left mid right)))
+(cell-block [[0 1 2] [1 2 3] [2 3 4]])
 
 (defn liveness
   "Returns the liveness (nil or :on) of the center cell for
-the next step."
+  the next step."
   [block]
   (let [[_ [_ center _] _] block]
     (case (- (count (filter #{:on} (apply concat block)))
@@ -929,9 +935,75 @@ the next step."
 ;; An elegant implementation of Conway’s Game of Life
 (defn step
   "Yields the next state of the world"
-  [cells]
-  (set (for [[loc n] (frequencies (mapcat neighbours cells))
-             :when (or (= n 3) (and (= n 2) (cells loc)))] loc)))
+  [cells]                               ; eg. #{[2 0] [2 1] [2 2] [1 2] [0 1]}
+  (set (for [
+             ;; cell is neighbours' neighbour
+             ;; 所有:on的cell的neighbours中，某个neighbour出现的次数，等同于该neighbour周围的:on的cell的个数
+             [loc n] (frequencies (mapcat neighbours cells))
+             :when (or (= n 3)
+                       (and (= n 2)
+                            (cells loc)))]
+         loc)))
+(->> (iterate step #{[2 0] [2 1] [2 2] [1 2] [0 1]})
+     (drop 8)
+     first
+     (populate (empty-board 6 6))
+     pprint)
+
+;; extract a high order function
+(defn stepper
+  "Returns a step function for Life-like cell automata.
+  neighbours takes a location and return a sequential collection of locations.
+  survive? and birth? are predicates on the number of living neighbours."
+  [neighbours birth? survive?]
+  (fn [cells]
+    (set (for [
+               [loc n] (frequencies (mapcat neighbours cells))
+               :when (if (cells loc) (survive? n) (birth? n))
+               ]
+           loc))))
+;; `step' above is equivalent to `(stepper neighbours #{3} #{2 3})'
+
+;; Life-like automaton H.B2/S34 (with a hexagonal grid, birth for 2, survive when 3 or 4)
+(defn hex-neighbours
+  [[x y]]
+  (for [dx [-1 0 1]
+        dy (if (zero? dx)
+             [-2 2]
+             [-1 1])]
+    [(+ dx x) (+ dy y)]))
+(def hex-step (stepper hex-neighbours #{2} #{3 4}))
+
+(hex-step #{[0 0] [1 1] [1 3] [0 4]})   ; => #{[2 2] [1 5] [1 -1]}
+(hex-step *1)                           ; => #{[1 1] [1 3] [2 4] [2 0]}
+(hex-step *1)                           ; => #{[1 5] [1 -1] [0 2]}
+(hex-step *1)                           ; => #{[0 0] [1 1] [1 3] [0 4]}
+
+
+;;-----------------------------------------------------------
+;;; Chapter 4: Concurrency and Parallelism
+;;-----------------------------------------------------------
+
+;; delay, when forced (with force or deref/@), will evaluate once then cache the result
+(def d (delay (println "Running...")
+              :done!))
+(deref d)                               ; => :done!
+@d                                      ; => :done!
+(macroexpand '@d)                       ; => (clojure.core/deref d)
+
+(defn get-document
+  [id]
+                                        ; ... do some work to retrieve the identified document's metadata ...
+  {:url "http://www.mozilla.org/about/manifesto.en.html"
+   :title "The Mozilla Manifesto"
+   :mime "text/html"
+   :content (delay (slurp "http://www.mozilla.org/about/manifesto.en.html"))})
+
+
+
+
+
+
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
