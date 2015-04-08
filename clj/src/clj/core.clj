@@ -888,7 +888,7 @@ a                                                      ; => [1 2 3]
             board
             (for [x (range w) y (range h)]
               [x y]))))
-(-> (iterate indexed-step glider) (nth 8) print)
+(-> (iterate indexed-step3 glider) (nth 8) print)
 
 ;; partition
 (partition 3 1 (range 5))                      ; => ((0 1 2) (1 2 3) (2 3 4))
@@ -902,7 +902,6 @@ a                                                      ; => [1 2 3]
 (defn cell-block
   "Creates a sequences of 3x3 windows from a triple of 3 sequences."
   [[left mid right]]
-  (print left " " mid " " right)
   (window (map vector left mid right)))
 
 (defn liveness
@@ -915,7 +914,24 @@ the next step."
       2 center
       3 :on
       nil)))
+(defn- step-row
+  "Yields the next state of the center row."
+  [rows-triple]
+  (vec (map liveness (cell-block rows-triple))))
+(defn index-free-step
+  "Yields the next state of board"
+  [board]
+  (vec (map step-row (window (repeat nil) board))))
 
+(= (nth (iterate indexed-step glider) 8)
+   (nth (iterate index-free-step glider) 8)) ; => true
+
+;; An elegant implementation of Conway’s Game of Life
+(defn step
+  "Yields the next state of the world"
+  [cells]
+  (set (for [[loc n] (frequencies (mapcat neighbours cells))
+             :when (or (= n 3) (and (= n 2) (cells loc)))] loc)))
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
