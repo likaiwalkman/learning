@@ -997,9 +997,56 @@ a                                                      ; => [1 2 3]
   {:url "http://www.mozilla.org/about/manifesto.en.html"
    :title "The Mozilla Manifesto"
    :mime "text/html"
-   :content (delay (slurp "http://www.mozilla.org/about/manifesto.en.html"))})
+   :content (delay (slurp "http://www.baidu.com"))})
 
+(def d (get-document "some-id"))
+(realized? (:content d))                ; => false
+@(:content d)
+(realized? (:content d))                ; => true
 
+;; Future, future will run in another thread
+(def long-calculation (future (apply + (range 1e8))))
+@long-calculation
+(deref (future (Thread/sleep 5000) :done!)
+       ;; timeout
+       1000
+       ;; timeout value
+       :impatient!)                     ; => :impatient!
+
+;; Promises, can be set a value *once* by `diliver'
+(def p (promise))                       ; => #'clj.core/p
+(realized? p)                           ; => false
+(deliver p 42)                     ; => #<core$promise$reify__6996@4cf9a739: 42>
+(realized? p)                      ; => true
+@p                                 ; => 42
+
+(def a (promise))                       ; => #'clj.core/a
+(def b (promise))                       ; => #'clj.core/b
+(def c (promise))                       ; => #'clj.core/c
+(future
+  (deliver c (+ @a @b))
+  (println "Delivery complete!!")) ; => #<core$future_call$reify__6953@6ecaf2fc: :pending>
+(deliver a 2)                      ; => #<core$promise$reify__6996@23166ffa: 2>
+(deliver b 8)                      ; => #<core$promise$reify__6996@dc4e3b8: 8>
+@c                                 ; => 10
+
+;; Promise don't detect cyclic dependencies
+;; below code will block indefinitely
+#_(deliver p @p)
+
+;; Promise are very useful for dealing with async operations
+(defn call-service
+  [arg1 arg2 callback-fn]
+  ;; ...async
+  (future (callback-fn (+ arg1 arg2) (- arg1 arg2)))) ; => #'clj.core/call-service
+(defn sync-fn
+  [async-fn]
+  (fn [& args]
+    (let [result (promise)]
+      ;; synchronously return the args of callback-fn
+      (apply async-fn (conj (vec args) #(deliver result %&)))
+      @result)))                        ; => #'clj.core/sync-fn
+((sync-fn call-service) 8 7)            ; => (15 1)
 
 
 
@@ -1019,3 +1066,7 @@ a                                                      ; => [1 2 3]
 ;; 4. Persistence不是我们常见的持久化的概念，而是函数式编程中保证immutable数据的操作的performance的技术。Clojure里是通过Structural sharing来实现的，因为immutable, 所有共享不会发生预料之外的问题。为了实现Structural sharing, 几乎所有的数据结构都是由tree构建, 包括hashmap, hashset, sorted-map, sorted-set, vectors
 
 ;; 5. Immutable数据还可以方便的实现数据版本化
+
+;; 6. Clojure futures are evaluated within a thread pool, and are instances of `java.util.concurrent.Future'
+
+;; 7. Concurrency is the coordination of multiple threads; while Parallelism is an optimization technique used to efficiently utilize all of the available resources to improve the performance of `an operation'. 简单来说，Concurrency的重点在于通过多线程同时做多件事(因为多线程并不会有助于做同一件事，比如计算)；而Parallelism(并行)是分而治之的将大问题分解为小问题，然后`同时'的执行这些小问题以加快速度，而不管你是通过多核的方式，分布式（多机）的方式还是什么别的方式
