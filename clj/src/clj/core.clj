@@ -1048,7 +1048,17 @@ a                                                      ; => [1 2 3]
       @result)))                        ; => #'clj.core/sync-fn
 ((sync-fn call-service) 8 7)            ; => (15 1)
 
+(defn phone-number
+  [string]
+  (re-seq #"(\d{3})[\.-]?(\d{3})[\.-]?(\d{4})" string))
+(phone-number "123-333.2222")         ; => (["123-333.2222" "123" "333" "2222"])
 
+(def files (repeat 100
+                   (apply str
+                          (concat (repeat 100000 \space)
+                                  "Sunil: 232.035.5777, Betty: 233.547.7456"))))
+(time (dorun (map phone-number files)))
+(time (dorun (pmap phone-number files)))
 
 
 
