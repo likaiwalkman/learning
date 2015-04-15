@@ -1060,6 +1060,33 @@ a                                                      ; => [1 2 3]
 (time (dorun (map phone-number files)))
 (time (dorun (pmap phone-number files)))
 
+(def files (repeat 100000
+                   (apply str
+                          (concat (repeat 1000 \space)
+                                  "Sunil: 617.555.2937, Betty: 508.555.2218"))))
+(time (dorun (map phone-numbers files)))  ; Elapsed time: 1516.586777 msecs
+;; 过多的小task并行，提升的效率不足以抵销并行本身的开销
+(time (dorun (pmap phone-numbers files))) ; Elapsed time: 1606.872801 msecs
+
+;; use chunk to combine small tasks
+(time (->> files
+           (partition-all 250)
+           (pmap (fn [chunk] (doall (map phone-numbers chunk))))
+           (apply concat)
+           dorun))                      ; Elapsed time: 894.438165 msecs
+
+
+;;; Clojure Reference Types
+;;-----------------------------------------------------------
+;; 4 reference types: var, ref, agent, atom
+@(atom 12)                              ; => 12
+@(agent {:c 42})
+(map deref [(agent {:c 42}) (atom 12)
+            (ref "http://clojure.org") (var +)]) ; => ({:c 42} 12 "http://clojure.org" #<core$_PLUS_ clojure.core$_PLUS_@3d5a6899>)
+;; deref will return a *snapshot* of a reference, and deref will never block
+
+
+
 
 
 ;;;; Thinking
