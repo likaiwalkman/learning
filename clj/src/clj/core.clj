@@ -975,9 +975,6 @@ a                                                      ; => [1 2 3]
 (def hex-step (stepper hex-neighbours #{2} #{3 4}))
 
 (hex-step #{[0 0] [1 1] [1 3] [0 4]})   ; => #{[2 2] [1 5] [1 -1]}
-(hex-step *1)                           ; => #{[1 1] [1 3] [2 4] [2 0]}
-(hex-step *1)                           ; => #{[1 5] [1 -1] [0 2]}
-(hex-step *1)                           ; => #{[0 0] [1 1] [1 3] [0 4]}
 
 
 ;;-----------------------------------------------------------
@@ -1064,14 +1061,14 @@ a                                                      ; => [1 2 3]
                    (apply str
                           (concat (repeat 1000 \space)
                                   "Sunil: 617.555.2937, Betty: 508.555.2218"))))
-(time (dorun (map phone-numbers files)))  ; Elapsed time: 1516.586777 msecs
+(time (dorun (map phone-number files)))  ; Elapsed time: 1516.586777 msecs
 ;; 过多的小task并行，提升的效率不足以抵销并行本身的开销
-(time (dorun (pmap phone-numbers files))) ; Elapsed time: 1606.872801 msecs
+(time (dorun (pmap phone-number files))) ; Elapsed time: 1606.872801 msecs
 
 ;; use chunk to combine small tasks
 (time (->> files
            (partition-all 250)
-           (pmap (fn [chunk] (doall (map phone-numbers chunk))))
+           (pmap (fn [chunk] (doall (map phone-number chunk))))
            (apply concat)
            dorun))                      ; Elapsed time: 894.438165 msecs
 
@@ -1085,9 +1082,100 @@ a                                                      ; => [1 2 3]
             (ref "http://clojure.org") (var +)]) ; => ({:c 42} 12 "http://clojure.org" #<core$_PLUS_ clojure.core$_PLUS_@3d5a6899>)
 ;; deref will return a *snapshot* of a reference, and deref will never block
 
+(defmacro futures
+  [n & exprs]
+  (vec (for [_ (range n)
+             expr exprs]
+         `(future ~expr))))
+(defmacro wait-futures
+  [& args]
+  `(doseq [f# (futures ~@args)]
+     @f#))
 
+;; Atoms, synchro- nous, uncoordinated, atomic compare-and-set modification
+(def sarah (atom {:name "Sarah" :age 25 :wears-glasses? false}))
+;; use swap! for atom
+(swap! sarah update-in [:age] + 3) ; => {:age 28, :name "Sarah", :wears-glasses? false}
+;; if the atom's value changes, swap! will retry with the newer value
+(def xs (atom #{1 2 3}))                ; => #'clj.core/xs
+(wait-futures 1
+              (swap! xs (fn [v]
+                          (Thread/sleep 250)
+                          (println "trying 4")
+                          (conj v 4)))
+              (swap! xs (fn [v]
+                          (Thread/sleep 500)
+                          (println "trying 5")
+                          (conj v 5))))
+@xs                                     ; => #{1 4 3 2 5}
 
+;; bare compare-and-set!
+(compare-and-set! xs :wrong "new value") ; => false
+(compare-and-set! xs @xs "new value")    ; => true
+;; reset! to force reset
+(reset! xs :y)                          ; => :y
 
+;;; Notifications and Constraints
+;; Watches
+(defn echo-watch
+  [key identity old new]
+  (println key old "=>" new))
+(def martin (atom {:name "martin" :age 25}))
+(add-watch martin :echo echo-watch)
+(add-watch martin :echo2 echo-watch)
+(swap! martin update-in [:age] inc)     ; => {:age 26, :name "martin"}
+(remove-watch martin :echo2)     ; => #<Atom@b5c8bf8: {:age 30, :name "martin"}>
+;; watch not guarantee the state is different
+(reset! martin @martin)
+
+(def history (atom ()))                 ; => #'clj.core/history
+(defn log->list
+  [dest-atom key source old new]
+  (when (not= old new)
+    (swap! dest-atom conj new)))
+(def martin (atom {:name "martin" :age 25}))
+
+(add-watch martin :record (partial log->list history))
+(swap! martin update-in [:age] inc)     ; => {:age 26, :name "martin"}
+(swap! martin assoc :wears-glasses? true)
+(pprint @history)
+
+;; Validator, return true or false
+(def n (atom 1 :validator pos?))        ; => #'clj.core/n
+(swap! n + 500)                         ; => 501
+#_(swap! n - 1000)                      ; java.lang.IllegalStateException: "Invalid reference state"
+;; set-validator!
+(def sarah (atom {:name "Sarah" :age 25})) ; => #'clj.core/sarah
+(set-validator! sarah :age)                ; => nil
+#_(swap! sarah dissoc :age) ; java.lang.IllegalStateException: "Invalid reference state"
+(set-validator! sarah #(or (:age %)
+                           (throw (IllegalStateException. "People must have `:age's!")))) ; => nil
+#_(swap! sarah dissoc :age)
+
+;;; Refs, coordinated reference type, using STM
+;; A multiplayer game
+(defn character
+  [name & {:as opts}]
+  (ref (merge {:name name :items #{} :health 500}
+              opts)))                   ; => #'clj.core/character
+(def smaug (character "Smaug" :health 500 :strength 400 :items (set (range 50))))
+(def bilbo (character "Bilbo" :health 100 :strength 100))
+(def gandalf (character "Gandalf" :health 75 :mana 750))
+;; dosync, All modifications of refs must occur within a transaction, when conflict, there will be retrying
+(defn loot
+  [from to]
+  (dosync
+   (when-let [item (first (:items @from))]
+     (alter to update-in [:items] conj item)
+     (alter from update-in [:items] disj item)))) ; => #'clj.core/loot
+(wait-futures 1
+              (while (loot smaug bilbo))
+              (while (loot smaug gandalf))) ; => nil
+@smaug              ; => {:strength 400, :name "Smaug", :items #{}, :health 500}
+@bilbo ; => {:strength 100, :name "Bilbo", :items #{0 7 20 39 46 4 21 31 32 40 33 13 22 36 41 43 29 44 6 28 25 17 3 12 2 23 47 35 19 11 9 5 45 26 16 38 30 10 18 42 37 8}, :health 100}
+@gandalf ; => {:mana 750, :name "Gandalf", :items #{27 1 24 15 48 34 14 49}, :health 75}
+(map (comp count :items deref) [bilbo gandalf]) ; => (42 8)
+(filter (:items @bilbo) (:items @gandalf))      ; => ()
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
