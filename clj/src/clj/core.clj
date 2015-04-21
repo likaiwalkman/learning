@@ -1161,7 +1161,7 @@ a                                                      ; => [1 2 3]
 (def smaug (character "Smaug" :health 500 :strength 400 :items (set (range 50))))
 (def bilbo (character "Bilbo" :health 100 :strength 100))
 (def gandalf (character "Gandalf" :health 75 :mana 750))
-;; dosync, All modifications of refs must occur within a transaction, when conflict, there will be retrying
+;; dosync and alter, All modifications of refs must occur within a transaction, when conflict, there will be retrying with new refs
 (defn loot
   [from to]
   (dosync
@@ -1177,8 +1177,65 @@ a                                                      ; => [1 2 3]
 (map (comp count :items deref) [bilbo gandalf]) ; => (42 8)
 (filter (:items @bilbo) (:items @gandalf))      ; => ()
 
+;; `alter' will fail when the order isn't right
+;; `commute' can be used when reorderability is acceptable
+;; commute will never cause conflict, and the in-transaction value is not guaranteed to be eventual committed value
+(def x (ref 0))                         ; => #'clj.core/x
+(time (wait-futures 5
+                    (dotimes [_ 1000]
+                      (dosync (alter x + (apply + (range 1000)))))
+                    (dotimes [_ 1000]
+                      (dosync (alter x - (apply + (range 1000))))))) ; "Elapsed time: 1027.664 msecs"
+(time (wait-futures 5
+                    (dotimes [_ 1000]
+                      (dosync (commute x + (apply + (range 1000)))))
+                    (dotimes [_ 1000]
+                      (dosync (commute x - (apply + (range 1000))))))) ; "Elapsed time: 204.655 msecs"
 
+;; rewrite loot
+(defn fixed-loot
+  [from to]
+  (dosync
+   (when-let [item (first (:items @from))]
+     ;; commute here because `to' will not conflict
+     (commute to update-in [:items] conj item)
+     ;; alter here because from will be updated by different threads
+     (alter from update-in [:items] disj item))))
+(def smaug (character "Smaug" :health 500 :strength 400 :items (set (range 50))))
+(def bilbo (character "Bilbo" :health 100 :strength 100))
+(def gandalf (character "Gandalf" :health 75 :mana 750))
+(wait-futures 1
+              (while (fixed-loot smaug bilbo))
+              (while (fixed-loot smaug gandalf)))
+(map (comp count :items deref) [bilbo gandalf]) ; => (41 9)
+(filter (:items @bilbo) (:items @gandalf))      ; => ()
 
+;; attack, heal
+(defn attack
+  [aggressor target]
+  (dosync
+   (let [damage (* (rand 0.1) (:strength @aggressor))]
+     ;; commute can be used because decrementing a number will not conflict
+     (commute target update-in [:health] #(max 0 (- % damage))))))
+(defn heal
+  [healer target]
+  (dosync
+   (let [aid (* (rand 0.1) (:mana @healer))]
+     (when (pos? aid)
+       (commute healer update-in [:mana] - (max 5 (/ aid 5)))
+       (commute target update-in [:health] + aid)))))
+
+(def alive? (comp pos? :health))        ; => #'clj.core/alive?
+(defn play
+  [character action other]
+  (while (and (alive? @character)
+              (alive? @other)
+              (action character other))
+    (Thread/sleep (rand-int 50))))
+(wait-futures 1
+              (play bilbo attack smaug)
+              (play smaug attack bilbo))
+(map (comp :health deref) [smaug bilbo]) ; => (458.60940890768944 0)
 
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
@@ -1198,3 +1255,5 @@ a                                                      ; => [1 2 3]
 ;; 6. Clojure futures are evaluated within a thread pool, and are instances of `java.util.concurrent.Future'
 
 ;; 7. Concurrency is the coordination of multiple threads; while Parallelism is an optimization technique used to efficiently utilize all of the available resources to improve the performance of `an operation'. 简单来说，Concurrency的重点在于通过多线程同时做多件事(因为多线程并不会有助于做同一件事，比如计算)；而Parallelism(并行)是分而治之的将大问题分解为小问题，然后`同时'的执行这些小问题以加快速度，而不管你是通过多核的方式，分布式（多机）的方式还是什么别的方式
+
+;; 8. `Refs' are for Coordinated Synchronous access to "Many Identities". `Atoms' are for Uncoordinated synchronous access to a single Identity. `Agents' are for Uncoordinated asynchronous access to a single Identity. `Vars' are for thread local isolated identities with a shared default value.
