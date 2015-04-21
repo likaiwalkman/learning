@@ -1177,6 +1177,9 @@ a                                                      ; => [1 2 3]
 (map (comp count :items deref) [bilbo gandalf]) ; => (42 8)
 (filter (:items @bilbo) (:items @gandalf))      ; => ()
 
+
+
+
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
 ;; 对于有状态依赖的函数，我们一般需要mock data来测试，但是你永远无法保证能cover所有的state。而pure函数没有这个问题。
