@@ -1237,6 +1237,8 @@ a                                                      ; => [1 2 3]
               (play smaug attack bilbo))
 (map (comp :health deref) [smaug bilbo]) ; => (458.60940890768944 0)
 
+
+
 ;;;; Thinking
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
 ;; 对于有状态依赖的函数，我们一般需要mock data来测试，但是你永远无法保证能cover所有的state。而pure函数没有这个问题。
@@ -1257,3 +1259,5 @@ a                                                      ; => [1 2 3]
 ;; 7. Concurrency is the coordination of multiple threads; while Parallelism is an optimization technique used to efficiently utilize all of the available resources to improve the performance of `an operation'. 简单来说，Concurrency的重点在于通过多线程同时做多件事(因为多线程并不会有助于做同一件事，比如计算)；而Parallelism(并行)是分而治之的将大问题分解为小问题，然后`同时'的执行这些小问题以加快速度，而不管你是通过多核的方式，分布式（多机）的方式还是什么别的方式
 
 ;; 8. `Refs' are for Coordinated Synchronous access to "Many Identities". `Atoms' are for Uncoordinated synchronous access to a single Identity. `Agents' are for Uncoordinated asynchronous access to a single Identity. `Vars' are for thread local isolated identities with a shared default value.
+
+;; 9. `ref-set' is for when don't care about the current value; `alter' will retry the whole transaction when conflicts; `commute' is an optimized alter, it will run twice(rerun synchronously when commit) to make sure the `commutative' calculation is correct
