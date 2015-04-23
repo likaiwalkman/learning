@@ -1274,8 +1274,85 @@ a                                                      ; => [1 2 3]
 
 #_(heal gandalf bilbo)                  ; IllegalStateException
 
+(dosync (alter bilbo assoc-in [:health] 95)) ; => {:max-health 100, :streanth 100, :name "Bilbo", :items #{}, :health 95}
+;; below will throw exception, because heal will make the health bigger than 100
+#_(heal gandalf bilbo)
+;; rewrite heal to cover this case
+(defn heal
+  [healer target]
+  (dosync
+   (let [aid (min (* (rand 0.1) (:mana @healer))
+                  (- (:max-health @target) (:health @target)))]
+     (when (pos? aid)
+       (commute healer update-in [:mana] - (max 5 (/ aid 5)))
+       (alter target update-in [:health] + aid)))))
+(heal gandalf bilbo) ; => {:max-health 100, :streanth 100, :name "Bilbo", :items #{}, :health 100}
 
+;;; STM's sharp corners
+;; use `io!' to prevent wrong usage of side-effecting functions in transaction
+(defn unsafe
+  []
+  (io! (println "writing to database...")))
+#_(dosync (unsafe))                     ; will throw IllegalStateException
 
+;; live lock, for deadlock, STM have some fallbacks
+(def x (ref 0))                         ; => #'clj.core/x
+;; below will throw exception: "Transaction failed after reaching retry limit"
+#_(dosync
+   @(future (dosync (ref-set x 1)))
+   (ref-set x 2))
+
+;; reader may cause transaction retry, because there may be some writers commited during read transactoin
+;; ref have history to cover this case. for example, we read a, but a is updating, then we read a's history
+(def a (ref 0))
+(future (dotimes [_ 500]
+          (dosync
+           (Thread/sleep 200)
+           (alter a inc)))) ; => #<core$future_call$reify__6953@120d15a2: :pending>
+@(future (dosync (Thread/sleep 1000) @a)) ; => 39
+(ref-max-history a)                       ; => 10
+(ref-history-count a)                     ; => 5
+
+;; Write skew, when an read ref changed out of the transaction, then the result will inconsistent
+;; we can use `ensure' to prevent other transaction change the ref
+(def daylight (ref 1))                  ; => #'clj.core/daylight
+(defn attack
+  [aggressor target]
+  (dosync
+   ;; if daylight changes outside, we don't know it
+   (let [damage (* (rand 0.1) (:strength @aggressor) @daylight)]
+     (commute target update-in [:health] #(max 0 (- % damage))))))
+
+;;; Vars
+map                                   ; => #<core$map clojure.core$map@455e7ae6>
+#'map                                 ; => #'clojure.core/map
+@#'map                                ; => #<core$map clojure.core$map@455e7ae6>
+(macroexpand '#'map)                  ; => (var map)
+(macroexpand '@#'map)                 ; => (clojure.core/deref (var map))
+
+;; private vars
+;; Can only be referred to using its fully qualified name when in another namespace.
+;; Its value can only be accessed by manually deferencing the var.
+(def ^:private everything 42)           ; => #'clj.core/everything
+
+;; docstring
+(def a
+  "a sample doc"
+  3)                                    ; => #'clj.core/a
+(clojure.repl/doc a)
+(meta #'a) ; => {:ns #<Namespace clj.core>, :name a, :file "/tmp/form-init2348055155997652946.clj", :column 1, :line 1, :doc "a sample doc"}
+
+;; Constants
+(def ^:const max-value 42)             ; => #'clj.core/everything
+(defn valid-value?
+  [v]
+  ;; max-value is ^:const, then it will be captured here at compile-time
+  ;; so change max-value will never impact this function
+  (<= v max-value))                     ; => #'clj.core/valid-value?
+(def max-value 50)                      ; => #'clj.core/max-value
+(valid-value? 45)                       ; => false
+
+;;; Dynamic Scope
 
 
 ;;;; Thinking
@@ -1299,4 +1376,6 @@ a                                                      ; => [1 2 3]
 
 ;; 8. `Refs' are for Coordinated Synchronous access to "Many Identities". `Atoms' are for Uncoordinated synchronous access to a single Identity. `Agents' are for Uncoordinated asynchronous access to a single Identity. `Vars' are for thread local isolated identities with a shared default value.
 
-;; 9. `ref-set' is for when don't care about the current value; `alter' will retry the whole transaction when conflicts; `commute' is an optimized alter, it will run twice(rerun synchronously when commit) to make sure the `commutative' calculation is correct
+;; 9. `ref-set' is for when don't care about the current value; `alter' will retry the whole transaction when conflicts; `commute' is an optimized alter, it will run twice(rerun *synchronously* when commit) to make sure the `commutative' calculation is correct
+
+;; 10. STM有一些限制: 每个transaction必须是safe to retry的，因为可能会执行多次，所以一定要保证没有side effect。可以使用`io!'来wrap io操作，当在transaction里执行时, io!会自动throw IllegalStateException; 另外，the values held by refs must be `immutable', 否则容易出错; 最后，the shorter the transaction is, the easier it will be for STM
