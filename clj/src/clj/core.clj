@@ -1237,6 +1237,45 @@ a                                                      ; => [1 2 3]
               (play smaug attack bilbo))
 (map (comp :health deref) [smaug bilbo]) ; => (458.60940890768944 0)
 
+;; reset health
+(dosync
+ (alter smaug assoc :health 500)
+ (alter bilbo assoc :health 100))
+
+(wait-futures 1
+              (play bilbo attack smaug)
+              (play smaug attack bilbo)
+              (play gandalf heal bilbo))
+(map (comp #(select-keys % [:name :health :mana]) deref)
+     [smaug bilbo gandalf]) ; => ({:health 0, :name "Smaug"} {:health 94.29314753431505, :name "Bilbo"} {:mana -0.9306288523772537, :health 75, :name "Gandalf"})
+
+;; `ref-set'
+(dosync (ref-set bilbo {:name "Bilbo"})) ; => {:name "Bilbo"}
+;; above is the same as
+(dosync (alter bilbo (constantly {:name "Bilbo"}))) ; => {:name "Bilbo"}
+
+;; Rewrite by adding validators
+(defn- enforce-max-health
+  [name health]
+  (fn [character-data]
+    (or (<= (:health character-data) health)
+        (throw (IllegalStateException. (str name " is already at max health!"))))))
+(defn character
+  [name & {:as opts}]
+  (let [cdata (merge {:name name :items #{} :health 500}
+                     opts)
+        cdata (assoc cdata :max-health (:health cdata))
+        validators (list* (enforce-max-health name (:health cdata))
+                          (:validators cdata))]
+    (ref (dissoc cdata :validators)
+         :validator #(every? (fn [v] (v %)) validators))))
+(def bilbo (character "Bilbo" :health 100 :streanth 100))
+(def gandalf (character "Gandalf" :health 75 :mana 750))
+
+#_(heal gandalf bilbo)                  ; IllegalStateException
+
+
+
 
 
 ;;;; Thinking
