@@ -1,5 +1,4 @@
 (ns clj.core)
-(use 'clojure.pprint)
 
 (defn avarage
   [numbers]
@@ -836,7 +835,7 @@ a                                                      ; => [1 2 3]
           board living-cells))
 (def glider (populate (empty-board 6 6)
                       #{[2 0] [2 1] [2 2] [1 2] [0 1]}))
-(pprint glider)
+(clojure.pprint/pprint glider)
 
 (defn neighbours [[x y]]
   (for [dx [-1 0 1] dy [-1 0 1] :when (not= 0 dx dy)]
@@ -862,7 +861,7 @@ a                                                      ; => [1 2 3]
                                    3 :on
                                    nil)]
                 (recur (assoc-in new-board [x y] new-liveness) x (inc y)))))))
-(-> (iterate indexed-step glider) (nth 8) pprint)
+(-> (iterate indexed-step glider) (nth 8) clojure.pprint/pprint)
 ;; now refactor by FP style
 (defn indexed-step2
   [board]
@@ -877,7 +876,7 @@ a                                                      ; => [1 2 3]
                           (assoc-in new-board [x y] new-liveness)))
                       new-board (range h)))
             board (range w))))
-(-> (iterate indexed-step2 glider) (nth 8) pprint)
+(-> (iterate indexed-step2 glider) (nth 8) clojure.pprint/pprint)
 
 (defn indexed-step3
   [board]
@@ -892,7 +891,7 @@ a                                                      ; => [1 2 3]
             board
             (for [x (range w) y (range h)]
               [x y]))))
-(-> (iterate indexed-step3 glider) (nth 8) pprint)
+(-> (iterate indexed-step3 glider) (nth 8) clojure.pprint/pprint)
 
 ;; partition
 (partition 3 1 (range 5))                      ; => ((0 1 2) (1 2 3) (2 3 4))
@@ -948,7 +947,7 @@ a                                                      ; => [1 2 3]
      (drop 8)
      first
      (populate (empty-board 6 6))
-     pprint)
+     clojure.pprint/pprint)
 
 ;; extract a high order function
 (defn stepper
@@ -1138,7 +1137,7 @@ a                                                      ; => [1 2 3]
 (add-watch martin :record (partial log->list history))
 (swap! martin update-in [:age] inc)     ; => {:age 26, :name "martin"}
 (swap! martin assoc :wears-glasses? true)
-(pprint @history)
+(clojure.pprint/pprint @history)
 
 ;; Validator, return true or false
 (def n (atom 1 :validator pos?))        ; => #'clj.core/n
@@ -1430,7 +1429,7 @@ j                                       ; => #<Unbound Unbound: #'clj.core/j>
   [arg1 arg2]
   '...)
 
-;;; Agents, uncoordinated, asynchronous. Agents will queue actions, so it's safe to retry(queue will remove successful actions)
+;;; Agents, uncoordinated, asynchronous. Agents will queue actions, and it's safe for tranaction retry(actions will hold until commited)
 ;; send, using a fixed-size thread pool, so it should not be used for blocking operations(e.g. IO)
 ;; send-off, using an unbounded thread pool(the same one used by futures)
 (def a (agent 500))                     ; => #'clj.core/a
@@ -1447,6 +1446,64 @@ j                                       ; => #<Unbound Unbound: #'clj.core/j>
 (await-for 600 a b)
 @a                                      ; => nil
 @b                                      ; => 10000
+
+;; Error handling
+(def a (agent nil))                     ; => #'clj.core/a
+(send a (fn [_] (throw (Exception. "something is wrong")))) ; => #<Agent@6fc9a4c8 FAILED: nil>
+a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
+;; below will throw Exception
+#_(send a identity)
+;; restart agent, optional :clear-actions flag
+(restart-agent a 42)                    ; => 42
+(send a inc)                            ; => #<Agent@6fc9a4c8: 43>
+(reduce send a (for [x (range 3)]
+                 (fn [_] (throw (Exception. (str "error #" x)))))) ; => #<Agent@6fc9a4c8: 43>
+(agent-error a)                  ; => #<Exception java.lang.Exception: error #0>
+(restart-agent a 42)             ; => 42
+(agent-error a)                  ; => #<Exception java.lang.Exception: error #1>
+(restart-agent a 42 :clear-actions true) ; => 42
+(agent-error a)                          ; => nil
+
+;; error handlers and modes, :fail(the default) or :continue
+;; use :continue mode, it will ignore errors
+(def a (agent nil :error-mode :continue)) ; => #'clj.core/a
+(send a (fn [_] (throw (Exception. "something is wrong"))))
+(send a identity)                       ; => #<Agent@4994a307: nil>
+;; use error handlers
+(def a (agent nil
+              :error-mode :continue
+              :error-handler (fn [the-agent exception]
+                               (.println *out* (.getMessage exception))))) ; => #'clj.core/a
+(send a (fn [_] (throw (Exception. "something is wrong"))))
+(send a identity)                       ; => #<Agent@207c05c3: nil>
+
+;; change error mode
+(set-error-handler! a (fn [the-agent exception]
+                        (when (= "FATAL" (.getMessage exception))
+                          (set-error-mode! the-agent :fail))))
+(send a (fn [_] (throw (Exception. "FATAL"))))
+#_(send a identity)                     ; will throw Exception
+
+;; Persisting reference states with an agent-based write-behind log
+(require '[clojure.java.io :as io])     ; => nil
+(def console (agent *out*))             ; => #'clj.core/console
+(def character-log (agent (io/writer "/tmp/character-states.log" :append true))) ; => #'clj.core/character-log
+
+(defn write
+  [^java.io.Writer w & content]
+  (doseq [x (interpose)]
+    (.write w (str x)))
+  (doto w
+    (.write "\n")
+    .flush))
+
+(defn log-reference
+  [reference & writer-agents]
+  (add-watch reference :log
+             (fn [_ reference old new]
+               (doseq [writer-agent writer-agents]
+                 (send-off writer-agent write new))))) ; => #'clj.core/log-reference
+
 
 
 
