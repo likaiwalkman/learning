@@ -1491,11 +1491,12 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
 
 (defn write
   [^java.io.Writer w & content]
-  (doseq [x (interpose)]
+  (println content)
+  (doseq [x (interpose " " content)]
     (.write w (str x)))
   (doto w
     (.write "\n")
-    .flush))
+    .flush))                            ; => #'clj.core/write
 
 (defn log-reference
   [reference & writer-agents]
@@ -1504,7 +1505,68 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
                (doseq [writer-agent writer-agents]
                  (send-off writer-agent write new))))) ; => #'clj.core/log-reference
 
+(def smaug (character "Smaug" :health 500 :strength 400)) ; => #'clj.core/smaug
+(def bilbo (character "Bilbo" :health 100 :strength 100)) ; => #'clj.core/bilbo
+(def gandalf (character "Gandalf" :health 75 :mana 1000)) ; => #'clj.core/gandalf
+(log-reference bilbo console character-log) ; => #<Ref@14442b61: {:max-health 100, :strength 100, :name "Bilbo", :items #{}, :health 100}>
+(log-reference smaug console character-log) ; => #<Ref@577cbcb1: {:max-health 500, :strength 400, :name "Smaug", :items #{}, :health 500}>
+(wait-futures 1
+              (play bilbo attack smaug)
+              (play smaug attack bilbo)
+              (play gandalf heal bilbo))
 
+;; using log
+(defn attack
+  [aggressor target]
+  (dosync
+   (let [damage (* (rand 0.1) (:strength @aggressor) (ensure daylight))]
+     (send-off console write
+               (:name @aggressor) "hits" (:name @target) "for" damage)
+     (commute target update-in [:health] #(max 0 (- % damage))))))
+(defn heal
+  [healer target]
+  (dosync
+   (let [aid (min (* (rand 0.1) (:mana @healer))
+                  (- (:max-health @target) (:health @target)))]
+     (when (pos? aid)
+       (send-off console write
+                 (:name @healer) "heals" (:name @target) "for" aid)
+       (commute healer update-in [:mana] - (max 5 (/ aid 5)))
+       (alter target update-in [:health] + aid)))))
+(dosync
+ (alter smaug assoc :health 500)
+ (alter bilbo assoc :health 100)) ; => {:max-health 100, :strength 100, :name "Bilbo", :items #{}, :health 100}
+(wait-futures 1
+              (play bilbo attack smaug)
+              (play smaug attack bilbo)
+              (play gandalf heal bilbo))
+
+
+;;; Using agents to parallelize workloads
+(require '[net.cgrand.enlive-html :as enlive])
+(use '[clojure.string :only (lower-case)])
+(import '(java.net URL MalformedURLException))
+(defn- links-from
+  [base-url html]
+  (remove nil? (for [link (enlive/select html [:a])]
+                 (when-let [href (-> link :attrs :href)]
+                   (try
+                     (URL. base-url href)
+                     ;; ignore bad URLs
+                     (catch MalformedURLException e))))))
+(defn- words-from
+  [html]
+  (let [chunks (-> html
+                   (enlive/at [:script] nil)
+                   (enlive/select [:body enlive/text-node]))]
+    (->> chunks
+         (mapcat (partial re-seq #"\w+"))
+         (remove (partial re-matches #"\d+"))
+         (map lower-case))))
+
+(def url-queue (java.util.concurrent.LinkedBlockingQueue.)) ; => #'clj.core/url-queue
+(def crawled-urls (atom #{}))           ; => #'clj.core/crawled-urls
+(def word-freqs (atom {}))              ; => #'clj.core/word-freqs
 
 
 ;;;; Thinking
