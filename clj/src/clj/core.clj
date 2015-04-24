@@ -994,7 +994,7 @@ a                                                      ; => [1 2 3]
   {:url "http://www.mozilla.org/about/manifesto.en.html"
    :title "The Mozilla Manifesto"
    :mime "text/html"
-   :content (delay (slurp "http://www.baidu.com"))})
+   :content (delay (slurp "http://baidu.com"))})
 
 (def d (get-document "some-id"))
 (realized? (:content d))                ; => false
@@ -1353,9 +1353,105 @@ map                                   ; => #<core$map clojure.core$map@455e7ae6>
 (valid-value? 45)                       ; => false
 
 ;;; Dynamic Scope
+(def ^:dynamic *max-value* 255)         ; => #'clj.core/*max-value*
+(defn valid-value?
+  [v]
+  (<= v *max-value*))                   ; => #'clj.core/valid-value?
+(binding [*max-value* 500]
+  (valid-value? 299))                   ; => true
+;; binding in only thread-local change
+(binding [*max-value* 500]
+  (println (valid-value? 299))
+  (doto (Thread. #(println "in other thread:" (valid-value? 299)))
+    .start
+    .join))
+
+;; define a http get function
+(defn http-get
+  [url-string]
+  (let [conn (-> url-string java.net.URL. .openConnection)
+        response-code (.getResponseCode conn)]
+    (if (== 404 response-code)
+      [response-code]
+      [response-code (-> conn .getInputStream slurp)])))
+(http-get "http://baidu.com/")
+
+;; using dynamic
+(def ^:dynamic *response-code* nil)     ; => #'clj.core/*response-code*
+(defn http-get
+  [url-string]
+  (let [conn (-> url-string java.net.URL. .openConnection)
+        response-code (.getResponseCode conn)]
+    (when (thread-bound? #'*response-code*)
+      ;; set! is for thread local set
+      (set! *response-code* response-code))
+    (when (not= 404 response-code)
+      (-> conn .getInputStream slurp)))) ; => #'clj.core/http-get
+(http-get "http://baidu.com") ; => "<html>\n<meta http-equiv=\"refresh\" content=\"0;url=http://www.baidu.com/\">\n</html>\n"
+*response-code*               ; => nil
+(binding [*response-code* nil]
+  (let [content (http-get "http://baidu.com")]
+    (println "Response code was:" *response-code*)
+    (println content)))
+
+;; Dynamic scope propagates through clojure-native concurrency forms
+(binding [*max-value* 500]
+  (println (valid-value? 299))
+  ;; future propagate the scope to other thread
+  @(future (valid-value? 299)))         ; => true
+(binding [*max-value* 500]
+  ;; map not propagate dynamic scope
+  (map valid-value? [299]))             ; => (false)
+;; use this instead
+(map #(binding [*max-value* 500]
+        (valid-value? %))
+     [299])                             ; => (true)
+
+;; var is not variables
+;; def always defines top level vars in the nampspace
+;; but you still can changing a var's Root Binding
+(def x 0)                               ; => #'clj.core/x
+(alter-var-root #'x inc)                ; => 1
+
+;; Forward Declarations
+(def j)                                 ; => #'clj.core/j
+j                                       ; => #<Unbound Unbound: #'clj.core/j>
+;; better using declare
+(declare complex-helper-fn other-helper-fn)
+(defn public-api-funciotn
+  [arg1 arg2]
+  ;; use helper functions
+  (other-helper-fn arg1 arg2 (complex-helper-fn arg1 arg2)))
+;; define helper functions later
+(defn- complex-helper-fn
+  [arg1 arg2]
+  '...)
+(defn- other-helper-fn
+  [arg1 arg2]
+  '...)
+
+;;; Agents, uncoordinated, asynchronous. Agents will queue actions, so it's safe to retry(queue will remove successful actions)
+;; send, using a fixed-size thread pool, so it should not be used for blocking operations(e.g. IO)
+;; send-off, using an unbounded thread pool(the same one used by futures)
+(def a (agent 500))                     ; => #'clj.core/a
+(send a range 1000)
+@a
+
+;; `await'
+(def a (agent 500))                    ; => #'clj.core/a
+(def b (agent 1000))                   ; => #'clj.core/b
+(send-off a #(Thread/sleep %))          ; => #<Agent@436efd24: 5000>
+(send-off b #(Thread/sleep %))          ; => #<Agent@16b72f4c: 10000>
+@a                                      ; => 5000
+;; await will block to wait actions done, wait-for has a timeout
+(await-for 600 a b)
+@a                                      ; => nil
+@b                                      ; => 10000
+
 
 
 ;;;; Thinking
+;;-----------------------------------------------------------
 ;; 1. Pure Function, 函数不依赖外部的状态，不改变外部的状态(side effect)，同样的输入对应固定的输出。这样的函数严谨，可靠，可测。
 ;; 对于有状态依赖的函数，我们一般需要mock data来测试，但是你永远无法保证能cover所有的state。而pure函数没有这个问题。
 ;; 但是关键是，真实的场景中，交互永远是状态依赖的。我们无法避免状态，从这个角度来讲，我们要做的，就是尽量保证Pure Function，然后把状态依赖收集起来，集中处理
