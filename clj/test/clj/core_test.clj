@@ -1,8 +1,12 @@
 (ns clj.core-test
   (:require [clojure.test :refer :all]
-            [clj.main :refer :all]))
+            [clj.main :refer :all]
+            [clj.macro :refer :all]
+            ))
 
-(deftest test-crawled
+(deftest test-1
   (testing "FIXME, I fail."
-    (is (= 0 1))))
-;(test-crawler 1 "http://typeof.net/s/jsmech/04.html")
+    (is (= 1 2))))
+(deftest test-2
+  (testing "..."
+    (is (= 1 1))))
