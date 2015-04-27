@@ -514,7 +514,6 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
 
 (defn write
   [^java.io.Writer w & content]
-  (println content)
   (doseq [x (interpose " " content)]
     (.write w (str x)))
   (doto w
@@ -610,7 +609,6 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
       (finally (run *agent*)))))        ; => #'clj.core/get-url
 (defn process
   [{:keys [url content]}]
-  (println "process: " url content)
   (try
     (let [html (enlive/html-resource (java.io.StringReader. content))]
       {::t #'handle-results
@@ -623,7 +621,6 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
     (finally (run *agent*))))           ; => #'clj.core/process
 (defn ^::blocking handle-results
   [{:keys [url links words]}]
-  (println url links words)
   (try
     (swap! crawled-urls conj url)
     (doseq [url links]
@@ -671,6 +668,5 @@ a                                       ; => #<Agent@6fc9a4c8 FAILED: nil>
   (Thread/sleep 60000)
   (pause)
   [(count @crawled-urls) (count url-queue)]) ; => #'clj.core/test-crawler
-                                        ; =>[0 0]
-(println agents)
-(println (slurp "http://typeof.net/s/jsmech/04.html"))
+
+(test-crawler 25 "https://news.ycombinator.com/") ; => [82, 6086]

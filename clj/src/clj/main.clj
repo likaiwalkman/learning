@@ -1,7 +1,8 @@
 (ns clj.main)
-;;(use '[clj.basic])
-;;(use '[clj.fp])
-(use '[clj.concurrency])
+;; (use '[clj.basic])
+;; (use '[clj.fp])
+;; (use '[clj.concurrency])
+(use '[clj.macro])
 
 
 ;;;; Thinking
@@ -29,3 +30,7 @@
 ;; 9. `ref-set' is for when don't care about the current value; `alter' will retry the whole transaction when conflicts; `commute' is an optimized alter, it will run twice(rerun *synchronously* when commit) to make sure the `commutative' calculation is correct
 
 ;; 10. STM有一些限制: 每个transaction必须是safe to retry的，因为可能会执行多次，所以一定要保证没有side effect。可以使用`io!'来wrap io操作，当在transaction里执行时, io!会自动throw IllegalStateException; 另外，the values held by refs must be `immutable', 否则容易出错; 最后，the shorter the transaction is, the easier it will be for STM
+
+;; 11. Macros operate at compile time, it has no access to runtime information, it sees only unevaluated data structures read from source code
+
+;; 12. Macros should be used only when you need your own language constructs, if function can do it, don't use macro
