@@ -166,3 +166,36 @@
                                (if or# or# (or ~@next)))))) ; => #'clj.macro/OR
 (binding [*print-meta* true]
   (prn (macroexpand '^String (OR a b)))) ; => nil
+
+;; Testing Contextual Macros
+(defmacro if-all-let
+  [bindings then else]
+  (reduce (fn [subform binding]
+            `(if-let [~@binding] ~subform ~else))
+          then (reverse (partition 2 bindings)))) ; => #'clj.macro/if-all-let
+(defn macroexpand1-env
+  [env form]
+  (if-all-let [[x & xs] (and (seq? form) (seq form))
+               v (and (symbol? x) (resolve x))
+               ;; check if it is macro
+               _ (-> v meta :macro)]
+              ;; macro accepts &form, &env as first/second parameter
+              (apply @v form env xs)
+              form))                    ; => #'clj.macro/macroexpand1-env
+(macroexpand1-env '{} '(simplify (range 10))) ; => (quote (0 1 2 3 4 5 6 7 8 9))
+(macroexpand1-env '{range nil} '(simplify (range 10))) ; => (range 10)
+
+;; -> and ->>
+(macroexpand '(-> foo bar baz))         ; => (baz (bar foo))
+(list* 1 2 '(3))                        ; => (1 2 3)
+(defn ensure-seq
+  [x]
+  (if (list? x)
+    x
+    (list x)))                          ; => #'clj.macro/ensure-seq
+(defn insert-second
+  "Insert x as the second item in seq y."
+  [x ys]
+  (let [ys (ensure-seq ys)]
+    (list* (first ys) x (rest ys))))    ; => #'clj.macro/insert-second
+(insert-second 'a '(b c))               ; => (b a c)

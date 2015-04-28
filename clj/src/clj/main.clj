@@ -3,7 +3,7 @@
 ;; (use '[clj.fp])
 ;; (use '[clj.concurrency])
 (use '[clj.macro])
-
+(use '[clj.type])
 
 ;;;; Thinking
 ;;-----------------------------------------------------------
@@ -34,3 +34,5 @@
 ;; 11. Macros operate at compile time, it has no access to runtime information, it sees only unevaluated data structures read from source code
 
 ;; 12. Macros should be used only when you need your own language constructs, if function can do it, don't use macro
+
+;; 13. `defrecord', `deftype'. Records are designed to be used to model and represent application-level data, whereas  deftype types are intended to define low-level infrastructure types
