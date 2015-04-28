@@ -155,7 +155,7 @@ matrix                                    ; => #<double[][] [[D@46881f54>
   ;; assertion
   {:pre [(pos? x)]}
   (Point. x (Math/log x)))              ; => #'clj.type/log-point
-(log-point -2)
+#_(log-point -2)
 (log-point Math/E)            ; => #clj.type.Point{:x 2.718281828459045, :y 1.0}
 
 ;; When to use maps or records
@@ -280,3 +280,27 @@ matrix                                    ; => #<double[][] [[D@46881f54>
     java.awt.event.ActionListener
     (actionPerformed [this e]
       (f e))))                          ; => #'clj.type/listener
+
+;; Protocal Dispatch Edge cases
+(defprotocol p
+  (a [x]))                              ; => p
+(extend-protocol p
+  java.util.Collection
+  (a [x] :collection)
+  java.util.List
+  (a [x] :list))                        ; => nil
+;; java.util.List extends java.util.Collection, so List is choosed
+(a [])                                  ; => :list
+
+(defprotocol P
+  (a [x]))                              ; => P
+(extend-protocol P
+  java.util.Map
+  (a [x] :map)
+  java.io.Serializable
+  (a [x] :serializable))                ; => nil
+;; below is random because Map and Serializable has no hierarchy relationship
+(a {})                                  ; => :map
+
+
+;;; Participating in Clojure's Collection Abstractions
