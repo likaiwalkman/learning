@@ -304,3 +304,196 @@ matrix                                    ; => #<double[][] [[D@46881f54>
 
 
 ;;; Participating in Clojure's Collection Abstractions
+(defn scaffold
+  "Given an interface, returns a 'hollow' body suitable for use with `deftype'"
+  [interface]
+  (doseq [[iface methods] (->> interface
+                               .getMethods
+                               (map #(vector (.getName (.getDeclaringClass %))
+                                             (symbol (.getName %))
+                                             (count (.getParameterTypes %))))
+                               (group-by first))]
+    (println (str "  " iface))
+    (doseq [[_ name argcount] methods]
+      (println
+       (str "    "
+            (list name (into '[this] (take argcount (repeatedly gensym)))))))))
+(scaffold clojure.lang.IPersistentSet)  ; => nil
+
+(declare empty-array-set)               ; => #'clj.type/empty-array-set
+(def ^:private ^:const max-size 4)      ; => #'clj.type/max-size
+(deftype ArraySet [^objects items
+                   ^int size
+                   ^:unsynchronized-mutable ^int hashcode]
+  clojure.lang.IPersistentSet
+  (get [this x]
+    (loop [i 0]
+      (when (< i size)
+        (if (= x (aget items i))
+          (aget items i)
+          (recur (inc i))))))
+  (contains [this x]
+    (boolean
+     (loop [i 0]
+       (when (< i size)
+         (or (= x (aget items i)) (recur (inc i)))))))
+  (disjoin [this x]
+    (loop [i 0]
+      (if (== i size)
+        this
+        (if (not= x (aget items i))
+          (recur (inc i))
+          (ArraySet. (doto (aclone items)
+                       ;; set last element to i
+                       (aset i (agent items (dec size)))
+                       (aset (dec size) nil))
+                     (dec size)
+                     -1)))))
+  clojure.lang.IPersistentCollection
+  (count [this] size)
+  (cons [this x]
+    (cond
+      (.contains this x) this
+      ;; promote to a clojure hash-set when exceeds max-size
+      (== size max-size) (into #{x} this)
+      :else (ArraySet. (doto (aclone items)
+                         (aset size x))
+                       (inc size)
+                       -1)))
+  (empty [this] empty-array-set)
+  (equiv [this that] (.equals this that))
+
+  clojure.lang.Seqable
+  (seq [this] (take size items))
+
+  Object
+  (hashCode [this]
+    (when (== -1 hashcode)
+      (set! hashcode (int (areduce items idx ret 0
+                                   (unchecked-add-int ret (hash (aget items idx)))))))
+    hashcode)
+  (equals [this that]
+    (or
+     (identical? this that)
+     (and (or (instance? java.util.Set that)
+              (instance? clojure.lang.IPersistentSet that))
+          (= (count this) (count that))
+          (every? #(contains? this %) that))))) ; => clj.type.ArraySet
+
+(def ^:private empty-array-set (ArraySet. (object-array max-size) 0 -1)) ; => #'clj.type/empty-array-set
+
+(defn array-set
+  "Creates an array-backed set containing the given values."
+  [& vals]
+  (into empty-array-set vals))          ; => #'clj.type/array-set
+
+(array-set)                             ; => #{}
+(conj (array-set) 1)                    ; => #{1}
+(apply array-set "hello")               ; => #{\h \e \l \o}
+(get (apply array-set "hello") \w)      ; => nil
+(get (apply array-set "hello") \h)      ; => \h
+(contains? (apply array-set "hello") \h) ; => true
+
+;; symmetric property of = is broke
+(= (array-set) #{})                      ; => true
+(= #{} (array-set))                      ; => false
+
+;; can't be used as function
+#_((apply array-set "hello") \h)        ; Exception
+
+(scaffold java.util.Set)                ; => nil
+
+;; an improved version of ArraySet
+(deftype ArraySet [^objects items
+                   ^int size
+                   ^:unsynchronized-mutable ^int hashcode]
+  clojure.lang.IPersistentSet
+  (get [this x]
+    (loop [i 0]
+      (when (< i size)
+        (if (= x (aget items i))
+          (aget items i)
+          (recur (inc i))))))
+  (contains [this x]
+    (boolean
+     (loop [i 0]
+       (when (< i size)
+         (or (= x (aget items i)) (recur (inc i)))))))
+  (disjoin [this x]
+    (loop [i 0]
+      (if (== i size)
+        this
+        (if (not= x (aget items i))
+          (recur (inc i))
+          (ArraySet. (doto (aclone items)
+                       ;; set last element to i
+                       (aset i (aget items (dec size)))
+                       (aset (dec size) nil))
+                     (dec size)
+                     -1)))))
+  clojure.lang.IPersistentCollection
+  (count [this] size)
+  (cons [this x]
+    (cond
+      (.contains this x) this
+      ;; promote to a clojure hash-set when exceeds max-size
+      (== size max-size) (into #{x} this)
+      :else (ArraySet. (doto (aclone items)
+                         (aset size x))
+                       (inc size)
+                       -1)))
+  (empty [this] empty-array-set)
+  (equiv [this that] (.equals this that))
+
+  clojure.lang.Seqable
+  (seq [this] (take size items))
+
+  Object
+  (hashCode [this]
+    (when (== -1 hashcode)
+      (set! hashcode (int (areduce items idx ret 0
+                                   (unchecked-add-int ret (hash (aget items idx)))))))
+    hashcode)
+  (equals [this that]
+    (or
+     (identical? this that)
+     (and (instance? java.util.Set that)
+          (= (count this) (count that))
+          (every? #(contains? this %) that))))
+
+  ;; make it callable
+  clojure.lang.IFn
+  (invoke [this key] (.get this key))
+  (applyTo [this args]
+    (when (not= 1 (count args))
+      (throw (clojure.lang.ArityException. (count args) "ArraySet")))
+    (this (first args)))
+
+  java.util.Set
+  (isEmpty [this] (zero? size))
+  (size [this] size)
+  (toArray [this array]
+    (.toArray ^java.util.Collection (sequence items) array))
+  (toArray [this] (into-array (seq this)))
+  (iterator [this] (.iterator ^java.util.Collection (sequence this)))
+  (containsAll [this coll]
+    (every? #(contains? this %) coll))) ; => clj.type.ArraySet
+
+(def ^:private empty-array-set (ArraySet. (object-array max-size) 0 -1)) ; => #'clj.type/empty-array-set;
+(= #{3 1 2 0} (array-set 0 1 2 3))      ; => true;
+((apply array-set "hello") \h)          ; => \h
+
+;; benchmark
+(defn microbenchmark
+  [f & {:keys [size trials] :or {size 4, trials 1e6}}]
+  (let [items (repeatedly size gensym)]
+    (time (loop [s (apply f items)
+                 n trials]
+            (when (pos? n)
+              (doseq [x items] (contains? s x))
+              (let [x (rand-nth items)]
+                (recur (-> s (disj x) (conj x)) (dec n)))))))) ; => #'clj.type/microbenchmark
+(doseq [n (range 1 5)
+        f [#'array-set #'hash-set]]
+  (print n (-> f meta :name) ": ")
+  (microbenchmark @f :size n))

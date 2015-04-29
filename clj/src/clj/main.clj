@@ -4,6 +4,8 @@
 ;; (use '[clj.concurrency])
 (use '[clj.macro])
 (use '[clj.type])
+(use '[clj.multimethod])
+(use '[clj.tool])
 
 ;;;; Thinking
 ;;-----------------------------------------------------------
