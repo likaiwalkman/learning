@@ -1,7 +1,9 @@
 (ns clj.interop
   (:import (java.io
             File
-            FileInputStream FileOutputStream)))
+            FileInputStream FileOutputStream)
+           (javax.swing JList JFrame JScrollPane JButton)
+           java.util.Vector))
 
 ;; with-open, auto release resources
 (defn copy-files
@@ -53,3 +55,40 @@
 ;; Set an array valuea
 #_(aset some-array 4 "foo")
 #_(aset ^ints int-array 4 5)
+
+
+;;; Proxy
+(defn lru-cache
+  [max-size]
+  ;; proxy [superclass & interfaces] [args] functions
+  (proxy [java.util.LinkedHashMap] [16 0.75 true]
+    (removeEldestEntry [entry]
+      (> (count this) max-size))))      ; => #'clj.interop/lru-cache
+
+(def cache (doto (lru-cache 5)
+             (.put :a :b)))             ; => #'clj.interop/cache
+cache                                   ; => {:a :b}
+(doseq [[k v] (partition 2 (range 500))]
+  ;; visit :a to make it hot, so that will not be removed
+  (get cache :a)
+  (.put cache k v))                     ; => nil
+cache                           ; => {492 493, 494 495, 496 497, :a :b, 498 499}
+
+
+;;; Annotations, just use meta
+#_(gen-class
+   :name com.clojurebook.annotations.JUnitTest
+   :methods [[^{org.junit.Test true} simpleTest [] void]
+             [^{org.junit.Test {:timeout 2000}} timeoutTest [] void]
+             [^{org.junit.Test {:expected NullPointerException}}
+              badException [] void]])
+
+;;; Call clojure from Java
+
+;; RT.var("clojure.core", "require").invoke(
+;;  Symbol.intern("com.clojurebook.protocol"));
+;; IFn speakFn = RT.var("com.clojurebook.protocol", "speak").fn();
+
+
+;;; defonce will not reevaluate
+(defonce fn-names "name")

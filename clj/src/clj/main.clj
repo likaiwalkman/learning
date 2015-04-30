@@ -7,7 +7,9 @@
 ;; (use '[clj.multimethod])
 ;; (use '[clj.tool])
 (use '[clj.interop])
-
+(use '[clj.genclass])
+(use '[clj.practice])
+(use '[clj.design-pattern])
 
 
 ;;;; Thinking

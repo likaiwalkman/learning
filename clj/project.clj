@@ -3,9 +3,11 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  ;; :aot :all
+  ;; :aot [clj.genclass]
+  ;; :main clj.interop
   :global-vars {*warn-on-reflection* true
                 *assert* false}
   :dependencies [[org.clojure/clojure "1.7.0-alpha5"]
                  [org.clojure/tools.nrepl "0.2.10"]
-                 [enlive "1.1.5"]])
+                 [enlive "1.1.5"]
+                 [robert/hooke "1.3.0"]])
