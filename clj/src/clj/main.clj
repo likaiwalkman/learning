@@ -2,10 +2,13 @@
 ;; (use '[clj.basic])
 ;; (use '[clj.fp])
 ;; (use '[clj.concurrency])
-(use '[clj.macro])
-(use '[clj.type])
-(use '[clj.multimethod])
-(use '[clj.tool])
+;; (use '[clj.macro])
+;; (use '[clj.type])
+;; (use '[clj.multimethod])
+;; (use '[clj.tool])
+(use '[clj.interop])
+
+
 
 ;;;; Thinking
 ;;-----------------------------------------------------------

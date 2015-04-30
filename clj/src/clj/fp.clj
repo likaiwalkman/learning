@@ -1,4 +1,5 @@
-(ns clj.fp)
+(ns clj.fp
+  (:use (clojure [pprint :only (pprint)])))
 ;;; Functional Programming
 ;;-----------------------------------------------------------
 ;; map, accept one func, and one or more collections

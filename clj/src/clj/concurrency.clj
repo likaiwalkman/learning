@@ -1,4 +1,6 @@
-(ns clj.concurrency)
+(ns clj.concurrency
+  (:use (clojure [pprint :only (pprint)]
+                 [repl :only (doc)])))
 ;;-----------------------------------------------------------
 ;;; Chapter 4: Concurrency and Parallelism
 ;;-----------------------------------------------------------
