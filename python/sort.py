@@ -46,8 +46,7 @@ def selectSort(array):
 # make array to heap(i >= 2i and i >= 2i + 1)
 # note array starts with index 0, so should be (i >= 2i + 1 and i >= 2i + 2)
 def makeHeap(array, endIndex):
-    for j in range(0, endIndex):
-        i = endIndex - j
+    for i in range(endIndex, 0, -1):
         parentIndex = (i - 1)/2
         while (parentIndex * 2 + 1 <= endIndex):
             bigChildIndex = parentIndex * 2 + 1
@@ -66,8 +65,7 @@ def makeHeap(array, endIndex):
 # 堆排序是一种树形选择排序，是对直接选择排序的有效改进。
 def heapSort(array):
     length = len(array)
-    for j in range(0, length):
-        i = length - 1 - j
+    for i in range(length - 1, 0, -1):
         makeHeap(array, i)
         _swap(array, 0, i)
     return array
