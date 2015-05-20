@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import unittest
+import math
 
 def _swap(array, left, right):
     if left == right:
@@ -70,13 +71,86 @@ def heapSort(array):
         _swap(array, 0, i)
     return array
 
+# Bubble Sort
+def bubbleSort(array):
+    length = len(array)
+    for i in range(length - 1, 0, -1):
+        for j in range(0, i):
+            if array[j] > array[j + 1]:
+                _swap(array, j, j + 1)
+
+    return array
+
+# Quick Sort
+# 选择一个基准元素,将小于它的放到前面,大于它的放到后面。递归处理前后两部分数据
+def quickSort(array):
+    length = len(array)
+    if length <= 1:
+        return array
+    else:
+        pivot = array[0]
+        left = []
+        right = []
+        for i in range(1, length):
+            if array[i] > pivot:
+                right.append(array[i])
+            else:
+                left.append(array[i])
+        return quickSort(left) + [pivot] + quickSort(right)
+
+# Merge Sort
+def mergeSort(array):
+    length = len(array)
+    if length <= 1:
+        return array
+    else:
+        mid = length / 2
+        return doMerge(mergeSort(array[:mid]), mergeSort(array[mid:]))
+
+def doMerge(left, right):
+    retArray = []
+    indexL = 0
+    indexR = 0
+    while indexL < len(left) and indexR < len(right):
+        if left[indexL] <= right[indexR]:
+            retArray.append(left[indexL])
+            indexL += 1
+        else:
+            retArray.append(right[indexR])
+            indexR += 1
+    for i in range(indexL, len(left)):
+        retArray.append(left[i])
+    for i in range(indexR, len(right)):
+        retArray.append(right[i])
+    return retArray
+
+# Radix Sort
+# 将所有待比较数值（正整数）统一为同样的数位长度，数位较短的数前面补零。然后，从最低位开始，依次进行一次排序
+def radixSort(array, radix = 10):
+    # 确定位数
+    k = int(math.ceil(math.log(max(array), radix)))
+    buckets = [[] for i in range(radix)]
+    # iterate each 位
+    for i in range(1, k + 1):
+        for val in array:
+            # 当前位的数字
+            num = val%(radix**i)/(radix**(i-1))
+            # 放到对应的bucket后
+            buckets[num].append(val)
+        array = []
+        for items in buckets:
+            array.extend(items)
+        # reset bucket
+        buckets = [[] for i in range(radix)]
+    return array
+
 
 # Here's our "unit tests".
 class UnitTests(unittest.TestCase):
 
-    sortedArray = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    sortedArray = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 111, 254]
     def getArray(self):
-        return [5, 2, 7, 1, 3, 9, 6, 4, 8]
+        return [5, 2, 7, 1, 10, 3, 9, 111, 6, 4, 254, 8]
     def testInsertSort(self):
         self.assertEqual(self.sortedArray, insertSort(self.getArray()))
     def testShellSort(self):
@@ -85,6 +159,14 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(self.sortedArray, selectSort(self.getArray()))
     def testHeapSort(self):
         self.assertEqual(self.sortedArray, heapSort(self.getArray()))
+    def testBubbleSort(self):
+        self.assertEqual(self.sortedArray, bubbleSort(self.getArray()))
+    def testQuickSort(self):
+        self.assertEqual(self.sortedArray, quickSort(self.getArray()))
+    def testMergeSort(self):
+        self.assertEqual(self.sortedArray, mergeSort(self.getArray()))
+    def testRadixSort(self):
+        self.assertEqual(self.sortedArray, radixSort(self.getArray()))
 
 def main():
     unittest.main()
