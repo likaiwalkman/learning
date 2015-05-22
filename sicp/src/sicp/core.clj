@@ -1,4 +1,5 @@
-(ns sicp.core)
+(ns sicp.core
+  (:require [clojure.pprint :as pp]))
 
 (defn sqrt-newton
   "Newton method to calculate sqrt"
@@ -24,3 +25,30 @@
      (fib pre (+ pree pre) (- n 1)))))
 
 ;; counting change
+;; coins: 1, 5, 10, 25, 50
+(defn count-change
+  ([amount] (count-change amount [50 25 10 5 1]))
+  ([amount coins]
+   (cond
+     ;; 0 => 1, so that 5 has 2 kinds of change
+     (= amount 0) 1
+     (< amount 0) 0
+     (= 1 (count coins)) (if (zero? (mod amount (first coins)))
+                           1
+                           0)
+     :else (+
+            ;; without first coin
+            (count-change amount (rest coins))
+            ;; with first coin
+            (count-change (- amount (first coins)) coins)))))
+
+;; pascal's triangle
+(defn pascal-triangle
+  [level]
+  (if (= level 1)
+    [[1]]
+    (let [pre (pascal-triangle (- level 1))
+          pre-last (last pre)]
+      (conj pre (vec (map #(+ (or (get pre-last (dec %)) 0)
+                              (or (get pre-last %) 0))
+                          (range (inc (count pre-last)))))))))
