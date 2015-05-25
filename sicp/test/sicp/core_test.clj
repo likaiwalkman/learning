@@ -32,4 +32,11 @@
       (prime? 2) => true
       (prime? 3) => true
       (prime? 9) => false
+      (prime? 561) => true
+      )
+
+(fact "about `sum-*'"
+      (sum-integers 1 10) => 55
+      (sum-cubes 1 2) => 9
+      (sum-pi 1 2) => 1/3
       )
