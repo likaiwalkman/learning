@@ -24,9 +24,11 @@
      (+ pree pre)
      (fib pre (+ pree pre) (- n 1)))))
 
+
 ;; counting change
 ;; coins: 1, 5, 10, 25, 50
 (defn count-change
+  "Calculate how many ways to change money"
   ([amount] (count-change amount [50 25 10 5 1]))
   ([amount coins]
    (cond
@@ -44,6 +46,7 @@
 
 ;; pascal's triangle
 (defn pascal-triangle
+  "Generate pascal triangle"
   [level]
   (if (= level 1)
     [[1]]
@@ -52,3 +55,18 @@
       (conj pre (vec (map #(+ (or (get pre-last (dec %)) 0)
                               (or (get pre-last %) 0))
                           (range (inc (count pre-last)))))))))
+
+(defn gcd
+  "Calculate greatest comman divisor"
+  [a b]
+  (if (= 0 b)
+    a
+    (gcd b (mod a b))))
+
+(defn prime?
+  "Test is a number is prime"
+  [n]
+  (cond
+    (< n 2) false
+    (= n 2) true
+    :else (let [])))

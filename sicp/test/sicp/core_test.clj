@@ -11,8 +11,25 @@
 (fact "about `count-change'"
       (count-change 1) => 1
       (count-change 2) => 1
+      (count-change 3) => 1
+      (count-change 4) => 1
       (count-change 5) => 2
+      (count-change 6) => 2
       (count-change 7) => 2
       (count-change 10) => 4
       (count-change 100) => 292
+      )
+
+(fact "about greatest common divisor"
+      (gcd 4 2) => 2
+      (gcd 3 5) => 1
+      (gcd 3 5) => 1
+      (gcd 10 5) => 5
+      (gcd 10 4) => 2
+      )
+
+(fact "about `prime?'"
+      (prime? 2) => true
+      (prime? 3) => true
+      (prime? 9) => false
       )
