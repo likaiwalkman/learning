@@ -4,6 +4,9 @@
 (defn- square
   [n]
   (* n n))
+(defn- average
+  [a b]
+  (/ (+ a b) 2))
 
 (defn sqrt-newton
   "Newton method to calculate sqrt"
@@ -131,3 +134,61 @@
 (def sum-integers (sum identity inc))
 (def sum-cubes (sum #(* % % %) inc))
 (def sum-pi (sum #(/ 1 (* % (+ % 2))) #(+ % 4)))
+
+;; half-inteval method
+(defn search-zero
+  "Find x of `f(x) = 0'"
+  [f neg pos]
+  (let [mid (average neg pos)
+        close-enough? (fn [x y]
+                        (< (Math/abs (- x y)) 0.001))]
+    (if (close-enough? neg pos)
+      mid
+      (let [test-value (f mid)]
+        (cond
+          (pos? test-value) (search-zero f neg mid)
+          (neg? test-value) (search-zero f mid pos)
+          :else mid
+          )))))
+(defn half-interval-method
+  [f a b]
+  (let [a-value (f a)
+        b-value (f b)]
+    (cond
+      (and (pos? a-value) (neg? b-value)) (search-zero f b a)
+      (and (neg? a-value) (pos? b-value)) (search-zero f a b)
+      :else (throw (Exception. (str "Values are not of opposite sign" a b)))
+      )))
+
+;; finding fix point of function
+(defn fixed-point [f first-guess]
+  (let [tolerance 0.00001
+        close-enough? (fn [v1 v2]
+                        (< (Math/abs (- v1 v2)) tolerance))
+        try-it (fn try-it [guess]
+                 (let [next (f guess)]
+                   (if (close-enough? guess next)
+                     next
+                     (try-it next))))]
+    (try-it first-guess)))
+
+;; Newton's method
+(defn deriv
+  "导数"
+  [g]
+  (let [dx 0.00001]
+    (fn [x]
+      (/ (- (g (+ x dx))
+            (g x))
+         dx))))
+(defn newton-transform
+  [g]
+  (fn [x]
+    (- x
+       (/ (g x)
+          ((deriv g) x)))))
+(defn newton-method
+  [g guess]
+  (fixed-point (newton-transform g) guess))
+(defn sqrt [x]
+  (newton-method #(- (square %) x) 1.0))

@@ -40,3 +40,18 @@
       (sum-cubes 1 2) => 9
       (sum-pi 1 2) => 1/3
       )
+
+(fact "about `half-inteval-method'"
+      (format "%.2f" (half-interval-method #(Math/sin %) 2.0 4.0)) => "3.14")
+
+(fact "about `fixed-point'"
+      (fixed-point #(Math/cos %) 1.0) => 0.7390822985224024
+      (fixed-point (fn [y] (+ (Math/sin y) (Math/cos y)))
+                   1.0) => 1.2587315962971173
+                   )
+
+(fact "about `deriv'"
+      ((roughly ((deriv #(* % % %)) 5)) 75) => true)
+
+(fact "about `newton-method'"
+      ((roughly (sqrt 4)) 2) => true)
