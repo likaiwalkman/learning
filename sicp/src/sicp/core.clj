@@ -1,9 +1,16 @@
 (ns sicp.core
   (:require [clojure.pprint :as pp]))
 
+;;;; -------------------------------------------
+;;;; Chapter 1, Building Abstractions with Procedures
+;;;; -------------------------------------------
+
 (defn- square
   [n]
   (* n n))
+(defn- cube
+  [n]
+  (* n n n))
 (defn- average
   [a b]
   (/ (+ a b) 2))
@@ -63,7 +70,7 @@
                           (range (inc (count pre-last)))))))))
 
 (defn gcd
-  "Calculate greatest comman divisor"
+  "Calculate greatest common divisor"
   [a b]
   (if (= 0 b)
     a
@@ -161,7 +168,9 @@
       )))
 
 ;; finding fix point of function
-(defn fixed-point [f first-guess]
+(defn fixed-point
+  "Fix point of function. return x of `f(x) = x'"
+  [f first-guess]
   (let [tolerance 0.00001
         close-enough? (fn [v1 v2]
                         (< (Math/abs (- v1 v2)) tolerance))
@@ -174,7 +183,7 @@
 
 ;; Newton's method
 (defn deriv
-  "导数"
+  "导数. `(g(x + dx) - g())/dx'"
   [g]
   (let [dx 0.00001]
     (fn [x]
@@ -182,13 +191,83 @@
             (g x))
          dx))))
 (defn newton-transform
+  "next = x - g(x)/g'(x), g(next)会比g(x)更接近0"
   [g]
   (fn [x]
     (- x
        (/ (g x)
           ((deriv g) x)))))
 (defn newton-method
+  "`fixed-point'(找x of `f(x) = x')
+配合 `newton-transform'(`f(x) = x - g(x)/g'(x)'), 找出 x of `g(x) = 0'"
   [g guess]
   (fixed-point (newton-transform g) guess))
+
 (defn sqrt [x]
   (newton-method #(- (square %) x) 1.0))
+(defn cubic
+  "x^3 + ax^2 + bx + c = 0"
+  [a b c]
+  (newton-method #(+ (cube %)
+                     (* a (square %))
+                     (* b %)
+                     c) 1.0))
+
+
+
+;;;; -------------------------------------------
+;;;; Chapter 2, Building Abstractions with Data
+;;;; -------------------------------------------
+
+;;; Arithmetic Operations for Rational Numbers
+(declare make-rat numer denom)
+(defn add-rat [x y]
+  (make-rat (+ (* (numer x) (denom y))
+               (* (numer y) (denom x)))
+            (* (denom x) (denom y))))
+(defn sub-rat [x y]
+  (make-rat (- (* (numer x) (denom y))
+               (* (numer y) (denom x)))
+            (* (denom x) (denom y))))
+(defn mul-rat [x y]
+  (make-rat (* (numer x) (numer y))
+            (* (denom x) (denom y))))
+(defn div-rat [x y]
+  (make-rat (* (numer x) (denom y))
+            (* (denom x) (numer y))))
+(defn equal-rat? [x y]
+  (= (* (numer x) (denom y))
+     (* (denom x) (numer y))))
+(defn make-rat [x y]
+  (let [g (gcd x y)]
+    (list (/ x g) (/ y g))))
+(defn numer [x] (first x))
+(defn denom [x] (second x))
+(defn print-rat [x]
+  (let [is-neg? (neg? (bit-xor (numer x) (denom x)))]
+    (str (if is-neg? "-" nil) (Math/abs (numer x)) "/" (Math/abs (denom x)))))
+
+;;; Interval Arithmetic
+(declare make-interval lower-bound upper-bound)
+(defn add-interval [x y]
+  (make-interval (+ (lower-bound x) (lower-bound y))
+                 (+ (upper-bound x) (upper-bound y))))
+(defn sub-interval [x y]
+  (make-interval (- (lower-bound x) (lower-bound y))
+                 (- (upper-bound x) (upper-bound y))))
+(defn mul-interval [x y]
+  (let [p1 (* (lower-bound x) (lower-bound y))
+        p2 (* (lower-bound x) (upper-bound y))
+        p3 (* (upper-bound x) (lower-bound y))
+        p4 (* (upper-bound x) (upper-bound y))]
+    (make-interval (min p1 p2 p3 p4)
+                   (max p1 p2 p3 p4))))
+(defn div-interval [x y]
+  (if (or (zero? (upper-bound y)) (zero? (lower-bound y)))
+    (throw (Exception. "divisor can't be zero"))
+    (mul-interval x
+                  (make-interval (/ 1.0 (upper-bound y))
+                                 (/ 1.0 (lower-bound y))))))
+(defn make-interval [x y] (list x y))
+(defn lower-bound [x] (first x))
+(defn upper-bound [x] (second x))
