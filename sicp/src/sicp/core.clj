@@ -107,8 +107,8 @@
                        (== (expmod a n n)
                            a))
          rand-from-1 (fn [n]
-                 "rand int from 1 (inclusive) to n (exclusive)"
-                 (inc (rand-int (dec n))))]
+                       "rand int from 1 (inclusive) to n (exclusive)"
+                       (inc (rand-int (dec n))))]
      (if (= 0 times)
        true
        (and (fermat-test (rand-from-1 n) n)
@@ -271,3 +271,34 @@
 (defn make-interval [x y] (list x y))
 (defn lower-bound [x] (first x))
 (defn upper-bound [x] (second x))
+
+
+;;; Hierarchy data and closure property
+;; mapping over lists
+(defn -map [f coll]
+  (if (empty? coll)
+    coll
+    (cons (f (first coll))
+          (-map f (rest coll)))))
+
+(defn length [coll]
+  "calculate the length of coll"
+  (if (empty? coll)
+    0
+    (inc (length (rest coll)))))
+(defn count-leaves [coll]
+  "calculate how many atomic leaves in a coll"
+  (cond
+    (nil? coll) 0
+    (not (seq? coll)) 1
+    (empty? coll) 0
+    :else (+ (count-leaves (first coll))
+             (count-leaves (rest coll)))
+    ))
+
+(defn deep-reverse [coll]
+  (cond
+    (not (seq? coll)) coll
+    (empty? coll) coll
+    :else (concat (deep-reverse (rest coll))
+                  (list (deep-reverse (first coll))))))

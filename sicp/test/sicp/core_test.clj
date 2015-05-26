@@ -80,4 +80,15 @@
              (mul-rat (make-rat -1 3)
                       (make-rat -2 -3))
              => (partial equal-rat? (make-rat -2 9))
-             ))
+             )
+
+       (fact "about hierachy data and closure"
+             (-map inc '()) => '()
+             (-map inc '(1 2 3)) => '(2 3 4)
+
+             (length '((1 2) 3 4)) => 3
+             (count-leaves '((1 2) 3 4)) => 4
+
+             (deep-reverse '((4 3) (2 1))) => '((1 2) (3 4))
+             )
+       )
