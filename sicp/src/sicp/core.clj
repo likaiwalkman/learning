@@ -199,7 +199,7 @@
           ((deriv g) x)))))
 (defn newton-method
   "`fixed-point'(找x of `f(x) = x')
-配合 `newton-transform'(`f(x) = x - g(x)/g'(x)'), 找出 x of `g(x) = 0'"
+  配合 `newton-transform'(`f(x) = x - g(x)/g'(x)'), 找出 x of `g(x) = 0'"
   [g guess]
   (fixed-point (newton-transform g) guess))
 
@@ -302,3 +302,118 @@
     (empty? coll) coll
     :else (concat (deep-reverse (rest coll))
                   (list (deep-reverse (first coll))))))
+
+;; sequence operations
+(defn -filter [pred seq]
+  (cond
+    (empty? seq) '()
+    (pred (first seq)) (cons (first seq)
+                             (-filter pred (rest seq)))
+    :else (-filter pred (rest seq))))
+
+(defn -reduce [op initial seq]
+  (if (empty? seq)
+    initial
+    (op (-reduce op initial (rest seq))
+        (first seq)
+        )))
+
+;; redefine functions by -reduce
+(defn -map [f seq]
+  (-reduce #(cons (f %2) %1) '() seq))
+(defn -concat [seq1 seq2]
+  (-reduce #(cons %2 %1) seq2 seq1))
+
+(defn length [seq]
+  (-reduce (fn [r n] (+ r 1)) 0 seq))
+(defn count-leaves [tree]
+  (-reduce + 0 (-map #(if (seq? %)
+                        (count-leaves %)
+                        1)
+                     tree)))
+(def fold-right -reduce)
+(defn fold-left [op initial seq]
+  (let [iter (fn iter [ret seq]
+               (if (empty? seq)
+                 ret
+                 (iter (op ret (first seq))
+                       (rest seq))))]
+    (iter initial seq)))
+
+;; nested mapping
+(defn flatmap [proc seq]
+  (-reduce -concat
+           '()
+           (map proc seq)))
+(defn prime-sum? [pair]
+  (prime? (+ (first pair) (second pair))))
+(defn make-pair-sum [pair]
+  (list (first pair)
+        (second pair)
+        (+ (first pair) (second pair))))
+(defn prime-sum-pairs [n]
+  (-map make-pair-sum
+        (-filter prime-sum?
+                 (flatmap
+                  (fn [i]
+                    (map #(list i %)
+                         (range 1 i)))
+                  (range 1 (inc n))))))
+
+(defn -remove [x s]
+  (-filter #(not (= x %)) s))
+
+(defn permutations
+  "排列。permutation of {1,2} are {1,2}, {2,1}"
+  [s]
+  (if (empty? s)
+    '(())
+    (flatmap
+     (fn [x]
+       (map #(cons x %)
+            (permutations (-remove x s))))
+     s)))
+
+;; eight-queens puzzle
+(declare empty-board safe? adjoin-position)
+(defn queens
+  "假设前k-1列都ok了, 第k列尝试每一个可能的row, filter掉不ok的"
+  [board-size]
+  (let [queen-cols
+        ;; (col row) position of first k cols
+        (fn queen-cols [k]
+          (if (zero? k)
+            (list empty-board)          ; '(())
+            (-filter
+             #(safe? k %)
+             (flatmap (fn [rest-of-queens]
+                        ;; 列出第k列所有的可能性
+                        (map #(adjoin-position % k rest-of-queens)
+                             ;; [1, board-size] rows
+                             (range 1 (inc board-size))))
+                      (queen-cols (dec k))))))]
+    (queen-cols board-size)))
+
+(def empty-board '())
+(defn safe?
+  [k cols]
+  (let [position (first cols)]
+    (-reduce #(and %1
+                   (not
+                    (or (= (first %2) (first position))
+                        (= (second %2) (second position))
+                        ;; 同一斜线
+                        (= (Math/abs (- (first position)
+                                        (first %2)))
+                           (Math/abs (- (second position)
+                                        (second %2)))))))
+             true
+             (rest cols))))
+(defn adjoin-position
+  [new-row k rest-of-queens]
+  (cons (list k new-row) rest-of-queens))
+
+
+;;; A picture language
+(def wave2 (beside wave (flip-vert wave)))
+(def wave4 (below wave2 wave2))

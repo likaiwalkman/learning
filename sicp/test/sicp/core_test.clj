@@ -88,7 +88,31 @@
 
              (length '((1 2) 3 4)) => 3
              (count-leaves '((1 2) 3 4)) => 4
+             (count-leaves '((1 2) (3 (4 5)))) => 5
 
              (deep-reverse '((4 3) (2 1))) => '((1 2) (3 4))
+             )
+
+       (fact "about sequence operations"
+             (-filter #(> % 0) '(-1 0 1 2)) => '(1 2)
+             (-reduce + 0 '(-1 0 1 2)) => 2
+             (-reduce * 1 '(1 2 3 4 5)) => 120
+
+             (fold-right #(cons %2 %1) '() '(1 2)) => '(1 2)
+             (fold-left #(cons %2 %1) '() '(1 2)) => '(2 1)
+
+             ;; nested map
+             (prime-sum-pairs 6) => '((6 1 7) (6 5 11) (5 2 7) (4 1 5) (4 3 7) (3 2 5) (2 1 3))
+
+             (permutations '(1 2)) => '((2 1) (1 2))
+             (permutations '(1 2 3)) => '((3 2 1) (3 1 2) (2 3 1) (2 1 3) (1 3 2) (1 2 3))
+
+             ;; eight queens
+             (queens 1) => '(((1 1)))
+             (queens 2) => '()
+             (count (queens 4)) => 2
+             (count (queens 5)) => 10
+             (count (queens 6)) => 4
+             (count (queens 7)) => 40
              )
        )
