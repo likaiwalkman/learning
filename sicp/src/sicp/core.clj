@@ -16,7 +16,7 @@
   (/ (+ a b) 2))
 
 (defn sqrt-newton
-  "Newton method to calculate sqrt"
+  "Newton method to calculate sqrt, `(guess + x/guess)/2'"
   [x]
   (let [good-enough? (fn [guess]
                        (<= (Math/abs (- (square guess) x))
@@ -101,7 +101,9 @@
    (let [expmod (fn expmod [base exp m]
                   "calculate: base**exp mod m"
                   (cond (zero? exp) 1
+                        ;; (base**(exp/2) mod m)**2 mod m = base**exp mod m
                         (even? exp) (mod (square (expmod base (/ exp 2) m)) m)
+                        ;; (base * (base**(exp-1) % m)) mod m = base**exp mod m
                         :else (mod (* base (expmod base (dec exp) m)) m)))
          fermat-test (fn [a n]
                        (== (expmod a n n)
@@ -183,7 +185,7 @@
 
 ;; Newton's method
 (defn deriv
-  "导数. `(g(x + dx) - g())/dx'"
+  "导数. `(g(x + dx) - g(x))/dx'"
   [g]
   (let [dx 0.00001]
     (fn [x]
