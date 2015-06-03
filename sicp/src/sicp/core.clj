@@ -323,6 +323,9 @@
 ;; redefine functions by -reduce
 (defn -map [f seq]
   (-reduce #(cons (f %2) %1) '() seq))
+(defn -each [f seq]
+  (-reduce #(f %2) nil seq))
+(-each #(println %) '(1 2 3))
 (defn -concat [seq1 seq2]
   (-reduce #(cons %2 %1) seq2 seq1))
 
@@ -417,5 +420,113 @@
 
 
 ;;; A picture language
-(def wave2 (beside wave (flip-vert wave)))
-(def wave4 (below wave2 wave2))
+(declare beside below wave rogers flip-vert flip-horiz)
+(defn rotate180
+  [painter]
+  (flip-horiz (flip-vert painter)))
+(defn flipped-pairs
+  [painter]
+  (let [painter2 (beside painter (flip-vert painter))]
+    (below painter2 painter2)))
+
+(defn right-split
+  [painter n]
+  (if (zero? n)
+    painter
+    (let [smaller (right-split painter (dec n))]
+      (beside painter (below smaller smaller)))))
+(defn up-split
+  [painter n]
+  (if (zero? n)
+    painter
+    (let [smaller (up-split painter (dec n))]
+      (below painter (beside smaller smaller)))))
+(defn corner-split
+  [painter n]
+  (if (zero? n)
+    painter
+    (let [up (up-split painter (dec n))
+          right (right-split painter (dec n))]
+      (let [top-left (beside up up)
+            bottom-right (below right right)
+            corner (corner-split painter (dec n))]
+        (beside (below painter top-left)
+                (below bottom-right corner))))))
+
+(defn square-limit
+  [painter n]
+  (let [quarter (corner-split painter n)]
+    (let [half (beside (flip-horiz quarter) quarter)]
+      (below (flip-vert half) half))))
+
+;; extract abstraction
+(defn square-of-four
+  "正方形的四角"
+  [tl tr bl br]
+  (fn [painter]
+    (let [top (beside (tl painter) (tr painter))
+          bottom (beside (bl painter) (br painter))]
+      (below bottom top))))
+;; rewrite flipped-pairs
+(defn flipped-pairs
+  [painter]
+  (let [combine4 (square-of-four identity flip-vert
+                                 identity flip-vert)]))
+;; rewrite square-limit
+(defn square-limit
+  [painter n]
+  (let [combine4 (square-of-four flip-horiz identity
+                                 rotate180 flip-vert)]
+    (combine4 (corner-split painter n))))
+
+;; extract split abstraction
+(defn split
+  [op1 op2]
+  (fn do-split [painter n]
+    (let [smaller (do-split (dec n))]
+      (op1 smaller (op2 smaller)))))
+(def right-split (split beside below))
+(def up-split (split below beside))
+
+;;; frames
+(declare xcor-vect ycor-vect add-vect sub-vect scale-vect origin-frame edge1-frame edge2-frame)
+(defn frame-coord-map
+  [frame]
+  (fn [v]
+    (add-vect
+     (origin-frame frame)
+     (add-vect (scale-vect (xcor-vect v)
+                           (edge1-frame frame))
+               (scale-vect (ycor-vect v)
+                           (edge2-frame frame))))))
+(defn make-vect [x y]
+  (list x y))
+(defn xcor-vect [v] (first v))
+(defn ycor-vect [v] (second v))
+(defn add-vect [v1 v2]
+  (list (+ (first v1) (first v2))
+        (+ (second v1) (second v2))))
+(defn sub-vect [v1 v2]
+  (list (- (first v1) (first v2))
+        (- (second v1) (second v2))))
+(defn scale-vect [scalar v]
+  (list (* scalar (first v))
+        (* scalar (second v))))
+(defn make-frame
+  [origin edge1 edge2]
+  (list origin edge1 edge2))
+(defn origin-frame [frame] (first frame))
+(defn edge1-frame [frame] (second frame))
+(defn edge2-frame [frame] (nth frame 2))
+
+;;; painters
+(declare make-segment start-segment end-segment draw-line)
+(defn segments->painter
+  [segment-list]
+  (fn [frame]
+    (-each
+     (fn [segment]
+       (draw-line
+        ((frame-coord-map frame) (start-segment segment))
+        ((frame-coord-map frame) (end-segment segment))))
+     segment-list)))
