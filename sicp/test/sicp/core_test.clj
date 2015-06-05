@@ -51,8 +51,8 @@
                           1.0) => 1.2587315962971173
                           )
 
-       (fact "about `deriv'"
-             ((deriv #(* % % %)) 5) => (roughly 75))
+       (fact "about `calc-deriv'"
+             ((calc-deriv #(* % % %)) 5) => (roughly 75))
 
        (fact "about `newton-method'"
              (sqrt 4) => (roughly 2)
@@ -114,5 +114,12 @@
              (count (queens 5)) => 10
              (count (queens 6)) => 4
              (count (queens 7)) => 40
+             )
+
+       (fact "about differentiation"
+             (deriv '(+ x 1) 'x) => 1
+             (deriv '(* x y) 'x) => 'y
+             (deriv '(* (* x y) (+ x 3)) 'x) => '(+ (* x y) (* y (+ x 3)))
+             (deriv '(* x y (+ x 3)) 'x) => '(+ (* x y) (* y (+ x 3)))
              )
        )

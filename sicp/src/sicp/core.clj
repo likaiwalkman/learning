@@ -184,7 +184,7 @@
     (try-it first-guess)))
 
 ;; Newton's method
-(defn deriv
+(defn calc-deriv
   "导数. `(g(x + dx) - g(x))/dx'"
   [g]
   (let [dx 0.00001]
@@ -198,7 +198,7 @@
   (fn [x]
     (- x
        (/ (g x)
-          ((deriv g) x)))))
+          ((calc-deriv g) x)))))
 (defn newton-method
   "`fixed-point'(找x of `f(x) = x')
   配合 `newton-transform'(`f(x) = x - g(x)/g'(x)'), 找出 x of `g(x) = 0'"
@@ -325,7 +325,7 @@
   (-reduce #(cons (f %2) %1) '() seq))
 (defn -each [f seq]
   (-reduce #(f %2) nil seq))
-(-each #(println %) '(1 2 3))
+
 (defn -concat [seq1 seq2]
   (-reduce #(cons %2 %1) seq2 seq1))
 
@@ -530,3 +530,155 @@
         ((frame-coord-map frame) (start-segment segment))
         ((frame-coord-map frame) (end-segment segment))))
      segment-list)))
+
+(defn make-segment [start end] (list start end))
+(defn start-segment [segment] (first segment))
+(defn end-segment [segment] (second segment))
+
+;; The painter that draws the outline of the designated frame.
+(segments->painter '((make-segment (make-vect 0 0) (make-vect 0 1))
+                     (make-segment (make-vect 0 0) (make-vect 1 0))
+                     (make-segment (make-vect 0 1) (make-vect 1 1))
+                     (make-segment (make-vect 1 0) (make-vect 1 1))))
+
+;; The painter that draws an ``X'' by connecting opposite corners of the frame.
+(segments->painter '((make-segment (make-vect 0 0) (make-vect 1 1))
+                     (make-segment (make-vect 0 1) (make-vect 1 0))))
+
+;; The painter that draws a diamond shape by connecting the midpoints of the sides of the frame.
+(segments->painter '((make-segment (make-vect 0 0.5) (make-vect 0.5 0))
+                     (make-segment (make-vect 0 0.5) (make-vect 0.5 1))
+                     (make-segment (make-vect 0.5 0) (make-vect 1 0.5))
+                     (make-segment (make-vect 0.5 1) (make-vect 1 0.5))))
+
+;;; painter transform
+(defn transform-painter
+  [painter origin corner1 corner2]
+  (fn [frame]
+    (let [m (frame-coord-map frame)
+          new-origin (m origin)]
+      (painter
+       (make-frame new-origin
+                   (sub-vect (m corner1) new-origin)
+                   (sub-vect (m corner2) new-origin))))))
+(defn flip-vert
+  [painter]
+  (transform-painter painter
+                     (make-vect 0 1)
+                     (make-vect 1 1)
+                     (make-vect 0 0)))
+(defn shrink-to-upper-right
+  [painter]
+  (transform-painter painter
+                     (make-vect 0.5 0.5)
+                     (make-vect 1 0.5)
+                     (make-vect 0.5 1)))
+(defn rotate90
+  [painter]
+  (transform-painter painter
+                     (make-vect 1 0)
+                     (make-vect 1 1)
+                     (make-vect 0 0)))
+(defn squash-inwards
+  [painter]
+  (transform-painter painter
+                     (make-vect 0.0 0.0)
+                     (make-vect 0.65 0.35)
+                     (make-vect 0.35 0.65)))
+
+;; beside
+(defn beside
+  [painter1 painter2]
+  (let [split-point (make-vect 0.5 0)
+        paint-left (transform-painter painter1
+                                      (make-vect 0 0)
+                                      split-point
+                                      (make-vect 0 1))
+        paint-right (transform-painter painter2
+                                       split-point
+                                       (make-vect 1 0)
+                                       (make-vect 0.5 1))]
+    (fn [frame]
+      (paint-left frame)
+      (paint-right frame))))
+
+(defn flip-horiz
+  [painter]
+  (transform-painter painter
+                     (make-vect 1 0)
+                     (make-vect 0 0)
+                     (make-vect 1 1)))
+
+(defn below [painter1 painter2]
+  (let [split-point (make-vect 0 0.5)
+        paint-down (transform-painter painter1
+                                      (make-vect 0 0)
+                                      (make-vect 1 0)
+                                      split-point)
+        paint-up (transform-painter painter2
+                                    split-point
+                                    (make-vect 1 0)
+                                    (make-vect 0 1))]
+    (fn [frame]
+      (paint-down frame)
+      (paint-up frame))))
+
+
+;;;; 2.3 Symbolic Data
+;;; differentiation
+(declare variable? same-variable? sum? product? make-sum make-product addend augend multiplier multiplicand)
+(defn deriv [exp var]
+  (cond
+    (number? exp) 0
+    (variable? exp) (if (same-variable? exp var) 1 0)
+    (sum? exp) (make-sum (deriv (addend exp) var)
+                         (deriv (augend exp) var))
+    (product? exp) (make-sum (make-product (multiplier exp)
+                                           (deriv (multiplicand exp) var))
+                             (make-product (deriv (multiplier exp) var)
+                                           (multiplicand exp)))
+    :else (throw (Exception. "unknown expression type -- DERIV"))))
+
+(defn variable? [v] (symbol? v))
+(defn same-variable? [v1 v2]
+  (and (variable? v1)
+       (variable? v2)
+       (= v1 v2)))
+(defn sum? [exp]
+  (and (seq? exp)
+       (= '+ (first exp))))
+(defn product? [exp]
+  (and (seq? exp)
+       (= '* (first exp))))
+(defn make-sum [e1 e2] (list '+ e1 e2))
+(defn make-product [e1 e2] (list '* e1 e2))
+(defn addend [sum] (second sum))
+(defn augend [sum]
+  (let [aug (rest (rest sum))]
+    (if (== 1 (count aug))
+      (first aug)
+      (cons '+ aug))))
+(defn multiplier [product] (second product))
+(defn multiplicand [product]
+  (let [cand (rest (rest product))]
+    (if (== 1 (count cand))
+      (first cand)
+      (cons '* cand))))
+
+
+;; rewrite for simplification
+(defn make-sum [e1 e2]
+  (cond
+    (and (number? e1) (zero? e1)) e2
+    (and (number? e2) (zero? e2)) e1
+    (and (number? e1)
+         (number? e2)) (+ e1 e2)
+         :else (list '+ e1 e2)))
+(defn make-product [e1 e2]
+  (cond
+    (and (number? e1) (number? e2)) (* e1 e2)
+    (and (number? e1) (== 1 e1)) e2
+    (and (number? e2) (== 1 e2)) e1
+    (and (number? e1) (zero? e1)) 0
+    (and (number? e2) (zero? e2)) 0
+    :else (list '* e1 e2)))
