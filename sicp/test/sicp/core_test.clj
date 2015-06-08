@@ -122,4 +122,14 @@
              (deriv '(* (* x y) (+ x 3)) 'x) => '(+ (* x y) (* y (+ x 3)))
              (deriv '(* x y (+ x 3)) 'x) => '(+ (* x y) (* y (+ x 3)))
              )
+
+       (fact "about set"
+             (element-of-set? 1 '(1 2 3)) => true
+             (element-of-set? 1 '(2 3)) => false
+
+             (element-of-set? 3 (adjoin-set 3 '(2 1))) => true
+
+             (intersection-set '(1 2 3) '(2 4 5)) => '(2)
+             (union-set '(1 2 3) '(2 4 5)) => '(1 2 3 4 5)
+             )
        )

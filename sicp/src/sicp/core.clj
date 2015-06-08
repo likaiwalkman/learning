@@ -682,3 +682,122 @@
     (and (number? e1) (zero? e1)) 0
     (and (number? e2) (zero? e2)) 0
     :else (list '* e1 e2)))
+
+;;;; 2.3.3 Representing Sets
+
+;;; unordered lists
+(defn element-of-set?
+  "O(n). Check if a set contains an element"
+  [x set]
+  (cond
+    (empty? set) false
+    (= x (first set)) true
+    :else (element-of-set? x (rest set))))
+
+(defn adjoin-set
+  [x set]
+  (if (element-of-set? x set)
+    set
+    (cons x set)))
+
+;; O(n^2), for calling element-of-set? n times
+(defn intersection-set
+  [set1 set2]
+  (cond
+    (or (empty? set1) (empty? set2))
+    '()
+
+    (element-of-set? (first set1) set2)
+    (cons (first set1)
+          (intersection-set (rest set1) set2))
+
+    :else
+    (intersection-set (rest set1) set2)))
+
+;; O(n^2)
+(defn union-set
+  [set1 set2]
+  (cond
+    (empty? set1)
+    set2
+
+    (empty? set2)
+    set1
+
+    (element-of-set? (first set1) set2)
+    (union-set (rest set1) set2)
+
+    :else
+    (cons (first set1)
+          (union-set (rest set1) set2))))
+
+;;; ordered set
+(defn element-of-set?
+  [x set]
+  (cond
+    (empty? set) false
+    (= x (first set)) true
+    ;; add this check to increase performance
+    (< x (first set)) false
+    :else (element-of-set? x (rest set))))
+
+;; O(n) now, don't need to check element-of-set?
+(defn intersection-set
+  [set1 set2]
+  (if (or (empty? set1) (empty? set2))
+    '()
+    (let [x1 (first set1)
+          x2 (first set2)]
+      (cond
+        (= x1 x2)
+        (cons x1 (intersection-set (rest set1) (rest set2)))
+
+        (< x1 x2)
+        (intersection-set (rest set1) set2)
+
+        (> x1 x2)
+        (intersection-set x1 (rest set2))))
+    ))
+
+;; better adjoin-set
+(defn adjoin-set
+  [x set]
+  (cond
+    (empty? set)
+    (cons x set)
+
+    (= x (first set))
+    set
+
+    (< x (first set))
+    (cons x set)
+
+    ;; x > (first set)
+    :else
+    (cons (first set) (adjoin-set x (rest set)))))
+
+;; O(n) union
+(defn union-set
+  [set1 set2]
+  (cond
+    (empty? set1)
+    set2
+
+    (empty? set2)
+    set1
+
+    :else
+    (let [x1 (first set1)
+          x2 (first set2)]
+      (cond
+        (= x1 x2)
+        (cons x1 (union-set (rest set1) (rest set2)))
+
+        (< x1 x2)
+        (cons x1 (union-set (rest set1) set2))
+
+        (> x1 x2)
+        (cons x2 (union-set x1 (rest set2)))))))
+
+
+;;; Sets as binary trees
