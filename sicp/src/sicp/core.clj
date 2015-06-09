@@ -801,3 +801,69 @@
 
 
 ;;; Sets as binary trees
+;; use (entry left right) to represent tree
+(defn entry [tree] (first tree))
+(defn left-branch [tree] (second tree))
+(defn right-branch [tree] (nth tree 2))
+(defn make-tree
+  ([entry] (list entry '() '()))
+  ([entry left right]
+   (list entry left right)))
+
+;; O(log n)
+(defn element-of-set?
+  [x set]
+  (cond
+    (empty? set)
+    false
+
+    (= x (entry set))
+    true
+
+    (< x (entry set))
+    (element-of-set? x (left-branch set))
+
+    (> x (entry set))
+    (element-of-set? x (right-branch set))))
+
+;; O(log n) only if the tree is balanced, this is not guaranteed
+(defn adjoin-set
+  [x set]
+  (cond
+    (empty? set)
+    (make-tree x)
+
+    (= x (entry set))
+    set
+
+    (< x (entry set))
+    (make-tree
+     (entry set)
+     (adjoin-set x (left-branch set))
+     (right-branch set))
+
+    (> x (entry set))
+    (make-tree
+     (entry set)
+     (left-branch set)
+     (adjoin-set x (right-branch set)))))
+
+(defn tree->list-1
+  [tree]
+  (if (empty? tree)
+    '()
+    (-concat (tree->list-1 (left-branch tree))
+             (cons (entry tree)
+                   (tree->list-1 (right-branch tree))))))
+(defn tree->list-2
+  [tree]
+  (let [copy-to-list
+        (fn copy-to-list [tree result-list]
+          (if (empty? tree)
+            result-list
+            (copy-to-list (left-branch tree)
+                          (cons (entry tree)
+                                (copy-to-list (right-branch tree)
+                                              result-list)))))]
+    (copy-to-list tree '())))
+(tree->list-1 '(1 () (2 () (4 (3 () ()) (5 () ())))))

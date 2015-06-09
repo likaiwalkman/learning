@@ -124,12 +124,12 @@
              )
 
        (fact "about set"
-             (element-of-set? 1 '(1 2 3)) => true
-             (element-of-set? 1 '(2 3)) => false
+             (element-of-set? 1 '(2 (1) (3))) => true
+             (element-of-set? 1 '(3 (2) ())) => false
 
-             (element-of-set? 3 (adjoin-set 3 '(2 1))) => true
+             (element-of-set? 3 (adjoin-set 3 '(2 (1 () ()) ()))) => true
 
-             (intersection-set '(1 2 3) '(2 4 5)) => '(2)
-             (union-set '(1 2 3) '(2 4 5)) => '(1 2 3 4 5)
+             (intersection-set '(2 (1) (3)) '(4 (2) 5)) => '(2 () ())
+             (union-set '(2 (1) (3)) '(4 (2) 5))) => '(1 2 3 4 5)
              )
        )
