@@ -326,8 +326,11 @@
 (defn -each [f seq]
   (-reduce #(f %2) nil seq))
 
-(defn -concat [seq1 seq2]
-  (-reduce #(cons %2 %1) seq2 seq1))
+(defn -concat [seq1 & seqs]
+  (if (empty? seqs)
+    seq1
+    (let [new-seq (-reduce #(cons %2 %1) (first seqs) seq1)]
+      (apply -concat new-seq (rest seqs)))))
 
 (defn length [seq]
   (-reduce (fn [r n] (+ r 1)) 0 seq))
@@ -866,4 +869,96 @@
                                 (copy-to-list (right-branch tree)
                                               result-list)))))]
     (copy-to-list tree '())))
-(tree->list-1 '(1 () (2 () (4 (3 () ()) (5 () ())))))
+
+(defn partial-tree [elts n]
+  (if (= n 0)
+    (cons '() elts)
+    (let [left-size (int (/ (- n 1) 2))
+          left-result (partial-tree elts left-size)
+          left-tree (first left-result)
+          non-left-elts (rest left-result)
+          right-size (- n (+ left-size 1))
+          this-entry (first non-left-elts)
+          right-result (partial-tree (rest non-left-elts)
+                                     right-size)
+          right-tree (first right-result)
+          remaining-elts (rest right-result)]
+      (cons (make-tree this-entry left-tree right-tree)
+            remaining-elts))))
+(defn list->tree
+  [elements]
+  (first (partial-tree elements (count elements))))
+
+;; balanced binary tree
+;; O(n)
+(defn union-set
+  [set1 set2]
+  (let [-union-set
+        (fn -union-set
+          [set1 set2]
+          (cond
+            (empty? set1)
+            set2
+
+            (empty? set2)
+            set1
+
+            :else
+            (let [x (entry set1)
+                  left (left-branch set1)
+                  right (right-branch set1)
+                  set (adjoin-set x set2)]
+              (-union-set left (-union-set right set)))))
+        new-set (-union-set set1 set2)]
+    (list->tree (tree->list-1 new-set))))
+
+(defn intersection-set
+  [set1 set2]
+  (let [-intersection-set
+        (fn -intersection-set
+          [set1 set2]
+          (if (or (empty? set1)
+                  (empty? set2))
+            '()
+
+            ;; else
+            (let [x1 (entry set1)
+                  x2 (entry set2)
+                  left1 (left-branch set1)
+                  left2 (left-branch set2)
+                  right1 (right-branch set1)
+                  right2 (right-branch set2)
+                  ]
+              (cond
+                (= x1 x2)
+                (-concat (list x1)
+                         (-intersection-set left1 left2)
+                         (-intersection-set right1 right2))
+
+                (< x1 x2)
+                (-concat (-intersection-set set1 left2)
+                         (-intersection-set right1 right2))
+
+                (> x1 x2)
+                (-concat (-intersection-set left1 set2)
+                         (-intersection-set right1 right2))))))]
+    (list->tree (-intersection-set set1 set2))))
+
+;; Sets and information retrieval
+(def -key identity)
+(defn lookup [k set]
+  (cond
+    (empty? set)
+    false
+
+    (= k (-key (entry set)))
+    (entry set)
+
+    (< k (-key (entry set)))
+    (lookup k (left-branch set))
+
+    (> k (-key (entry set)))
+    (lookup k (right-branch set))))
+
+
+;;; 2.3.4 Huffman encoding tree
