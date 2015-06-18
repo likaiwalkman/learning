@@ -959,35 +959,3 @@
 
     (> k (-key (entry set)))
     (lookup k (right-branch set))))
-
-
-;;; 2.3.4 Huffman encoding tree
-(defn make-leaf
-  [symbol weight]
-  (list 'leaf symbol weight))
-(defn leaf?
-  [node]
-  (= 'leaf (first node)))
-(defn symbol-leaf
-  [leaf]
-  (second leaf))
-(defn weight-leaf
-  [leaf]
-  (nth leaf 2))
-
-(defn left-tree [tree] (first tree))
-(defn right-tree [tree] (second tree))
-(defn symbols [tree]
-  (if (leaf? tree)
-    (list (symbol-leaf tree))
-    (nth tree 2)))
-(defn weight [tree]
-  (if (leaf? tree)
-    (list (weight-leaf tree))
-    (nth tree 3)))
-(defn make-code-tree
-  [left right]
-  (list left
-        right
-        (-concat (symbols left) (symbols right))
-        (+ (weight left) (weight right))))
