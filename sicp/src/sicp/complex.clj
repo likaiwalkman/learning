@@ -1,9 +1,6 @@
 ;;; 2.4 Multiple Representations for Abstract Data
-(ns sicp.complex)
-
-(defn square [n] (* n n))
-(defn error [& args]
-  (throw (Exception. (clojure.string/join " " args))))
+(ns sicp.complex
+  (:require [sicp.base :refer :all]))
 
 (declare real-part imag-part magnitude angle make-from-real-imag make-from-mag-ang)
 
@@ -186,3 +183,6 @@
   ((get 'make-from-real-imag 'rectangular) x y))
 (defn make-from-mag-ang [r a]
   ((get 'make-from-mag-ang 'polar) r a))
+
+
+;;; Message passing
