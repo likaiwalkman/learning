@@ -12,6 +12,7 @@
 #define multi(A, B) (A * B)
 
 void testFor(){
+    printf("fahr to celsius:\n");
     for (int fahr = LOWER; fahr <= UPPER; fahr += STEP) {
         printf("%3d %6.1f\n", fahr, (5.0/9.0)*(fahr-32));
     }
@@ -19,9 +20,16 @@ void testFor(){
 
 /* copy input to output */
 void testInputOutput (){
-    int c;
+    int c, t = 0, b = 0;
     while ((c = getchar()) != EOF) {
+        if (c == '\t'){
+            t++;
+        } else if (c == ' '){
+            b++;
+        }
         putchar(c);
+        printf("\\t number is: %d\n", t);
+        printf("space number is: %d\n", b);
     }
 }
 
@@ -101,12 +109,16 @@ void testPoint() {
     printf("\nq is %d", *q);
 }
 
+void test(){
+    printf("%x", 10);
+}
+
 int main() {
     //testFor();
     //testInputOutput();
-    //testArray();
+    testArray();
     //testFunction();
     //testExtern();
     //testMacro();
-    testPoint();
+    //testPoint();
 }
