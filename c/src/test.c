@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "extern.h"
 #include <string.h>
+#include <stdlib.h>
 
 /* A #define line defines a symbolic name or symbolic constant to be a particular string of characters */
 #define LOWER 0                 /* lower limit of table */
@@ -11,9 +12,27 @@
 #define max(A, B) (A > B ? A : B)
 #define multi(A, B) (A * B)
 
+/* struct */
+struct person
+{
+    char *name;
+    int age;
+    struct person *friend;
+};
+
+struct nlist {
+    struct nlist *next;
+    char *name;
+    char *defn;
+};
+#define HASHSIZE 101
+static struct nlist *hashtab[HASHSIZE];
+
+
 void testFor(){
     printf("fahr to celsius:\n");
-    for (int fahr = LOWER; fahr <= UPPER; fahr += STEP) {
+    int fahr;
+    for (fahr = LOWER; fahr <= UPPER; fahr += STEP) {
         printf("%3d %6.1f\n", fahr, (5.0/9.0)*(fahr-32));
     }
 }
@@ -68,7 +87,8 @@ int power(int base, int n) {
 }
 
 void testFunction() {
-    for (int i = 0; i < 10; i++) {
+    int i;
+    for (i = 0; i < 10; i++) {
         printf("%d %d %d\n", i, power(2, i), power(-3, i));
     }
 }
@@ -156,6 +176,124 @@ void testFunc(void (*func)(), int argc, char ** argv){
     func(argc, argv);
 }
 
+void testStruct(){
+    struct person m = {"Martin Liu", 26};
+    struct person d = {"Daisy", 26};
+    m.friend = &d;
+    struct person *martin = &m;
+    printf("name: %s\n" ,martin->name);
+    printf("age: %d\n" ,martin->age);
+    printf("friend: %s\n" ,martin->friend->name);
+
+    // bit-field
+    struct {
+        unsigned int is_keyword : 1; /* length: 1 */
+        unsigned int is_extern : 1;
+        unsigned int is_static : 1;
+    } flags;
+    flags.is_extern = 1;
+    printf("%d", flags.is_extern);
+}
+
+unsigned hash (char *s){
+    unsigned hashval;
+    for (hashval = 0; *s != '\0'; s++) {
+        hashval = *s + 31 * hashval;
+    }
+    return hashval % HASHSIZE;
+}
+
+struct nlist *lookup(char *s){
+    struct nlist *np;
+    for (np = hashtab[hash(s)]; np != NULL; np = np->next) {
+        if (strcmp(s, np->name) == 0)
+            return np;
+    }
+    return NULL;
+}
+
+struct nlist *install(char *name, char *defn){
+    struct nlist *np;
+    unsigned hashval;
+    if ((np = lookup(name)) == NULL){ /* not found */
+        np = (struct nlist *)malloc(sizeof(*np));
+        if (np == NULL || (np->name = strdup(name)) == NULL){
+            return NULL;
+        }
+        hashval = hash(name);
+        np->next = hashtab[hashval];
+        hashtab[hashval] = np;
+    } else {
+        free((void *) np->defn);
+    }
+
+    if ((np->defn = strdup(defn)) == NULL)
+        return NULL;
+    return np;
+}
+
+void testHashTable(){
+    install("test", "22");
+    printf("%s\n", lookup("test")->name);
+    printf("%s\n", lookup("test")->defn);
+}
+
+void testTypedef(){
+    typedef char* string;
+    string s = "this is a test";
+    printf("%s", s);
+}
+
+/*
+   union is similar to struct, but it's attributes share the same memory space
+   联合在同一时间只有一个成员是可见有效的
+ */
+void testUnion(){
+    union U1 {
+        char c;
+        int i;
+        double d;
+    };
+    union U1 u;
+    u.c = 'A';
+    printf("%c\n", u.c);        /* A */
+    printf("-------\n");
+    u.i = 12345;
+    printf("%c\n", u.c);        /* 9, overlap by u.i */
+    printf("%d\n", u.i);        /* 12345 */
+    printf("-------\n");
+    u.d = 3.24;
+    printf("%c\n", u.c);        /* empty, overlap by u.d */
+    printf("%d\n", u.i);        /* 515396076, overlap by u.d */
+    printf("%f\n", u.d);        /* 3.240000 */
+    printf("-------\n");
+    u.i = 123456;
+    printf("%c\n", u.c);
+    printf("%d\n", u.i);
+    printf("%f\n", u.d);
+}
+
+/* test input: "25 Dec 1988" */
+void testScanf(){
+    int day, year;
+    char monthname[20];
+    scanf("%d %s %d", &day, monthname, &year);
+    printf("%d %s %d" ,day, monthname, year);
+}
+
+void testFile(){
+    FILE *fp;
+    fp = fopen("src/test.c", "r");
+    char c;
+    while ((c = (char)getc(fp)) != '\n') {
+        printf("%c", c);
+    }
+}
+
+void testCommand(){
+    system("ls");
+}
+
 int main(int argc, char **argv) {
     //testFor();
     //testInputOutput();
@@ -168,5 +306,12 @@ int main(int argc, char **argv) {
     //testRegister(1);
     //testReverse();
     //testArg(argc, argv);
-    testFunc(testArg, argc, argv);
+    //testFunc(testArg, argc, argv);
+    //testStruct();
+    //testHashTable();
+    //testTypedef();
+    //testUnion();
+    //testScanf();
+    //testFile();
+    testCommand();
 }

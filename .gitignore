@@ -3,3 +3,7 @@
 *.class
 *.iml
 *.out
+
+# scala
+scala/project/
+scala/target/
