@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "extern.h"
-#include "init.c"
+#include <string.h>
 
 /* A #define line defines a symbolic name or symbolic constant to be a particular string of characters */
 #define LOWER 0                 /* lower limit of table */
@@ -109,16 +109,64 @@ void testPoint() {
     printf("\nq is %d", *q);
 }
 
-void test(){
-    printf("%x", 10);
+void testEnum(){
+    enum months { JAN = 1, FEB, MAR, APR, MAY, JUN,
+                  JUL, AUG, SEP, OCT, NOV, DEC };
+    enum months m = NOV;
+    printf("%d", m);
 }
 
-int main() {
+/* register告诉编译器，将变量存在寄存器以提高运行效率。但编译器可以不鸟它 */
+void testRegister(register int i){
+    register int j = i + 1;
+    printf("i is: %d, j is %d" ,i ,j);
+}
+
+void doReverse(char s[], int len, int n){
+    if (n == 0){
+        return;
+    } else {
+        int i = n - 1, j = len - n;
+        char temp;
+        temp = s[i]; s[i] = s[j]; s[j] = temp;
+        doReverse(s, len, n - 1);
+    }
+}
+
+void reverse(char s[]){
+    int l = strlen(s);
+    doReverse(s, l, l/2);
+}
+
+void testReverse(){
+    char s[] = "tesabc";
+    reverse(s);
+    printf("%s", s);
+}
+
+void testArg(int argc, char ** argv){
+    printf("arg count: %d\n" ,argc - 1);
+    printf("args:\n\t");
+    while (--argc > 0){
+        printf("%s\t" ,*++argv);
+    }
+}
+
+void testFunc(void (*func)(), int argc, char ** argv){
+    func(argc, argv);
+}
+
+int main(int argc, char **argv) {
     //testFor();
     //testInputOutput();
-    testArray();
+    //testArray();
     //testFunction();
     //testExtern();
     //testMacro();
     //testPoint();
+    //testEnum();
+    //testRegister(1);
+    //testReverse();
+    //testArg(argc, argv);
+    testFunc(testArg, argc, argv);
 }
