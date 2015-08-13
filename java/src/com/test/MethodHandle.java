@@ -18,5 +18,6 @@ public class MethodHandle {
         // first arg is the return type, others are the arguments for the method
         MethodType mt = MethodType.methodType(void.class, String.class);
         return lookup().findVirtual(receiver.getClass(), "println", mt).bindTo(receiver);
+
     }
 }

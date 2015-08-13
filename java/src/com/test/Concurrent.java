@@ -11,9 +11,7 @@ public class Concurrent {
         AtomicReference<String> result = new AtomicReference<String>();
         for (String base : engines){
             String url = base + question;
-            new Thread(() -> {
-                result.compareAndSet(null, )
-            }).start();
         }
+        return null;
     }
 }
